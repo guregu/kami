@@ -84,12 +84,10 @@ func wrap(k HandleFn) httprouter.Handle {
 		}
 
 		ctx, ok := run(ctx, writer, r)
-		if !ok {
-			goto log
+		if ok {
+			k(ctx, writer, r)
 		}
-		k(ctx, writer, r)
 
-	log:
 		if LogHandler != nil {
 			ranLogHandler = true
 			LogHandler(ctx, wrapped, r)
