@@ -22,9 +22,9 @@ func TestParams(t *testing.T) {
 		return context.WithValue(ctx, "test2", "2")
 	})
 	kami.Get("/v2/papers/:page", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-		page, ok := kami.Param(ctx, "page")
-		if !ok {
-			panic("not ok")
+		page := kami.Param(ctx, "page")
+		if page == "" {
+			panic("blank page")
 		}
 		io.WriteString(w, page)
 
@@ -58,6 +58,7 @@ func TestParams(t *testing.T) {
 }
 
 func TestLoggerAndPanic(t *testing.T) {
+	// test logger with panic
 	status := 0
 	kami.LogHandler = func(ctx context.Context, w mutil.WriterProxy, r *http.Request) {
 		status = w.Status()
@@ -70,12 +71,15 @@ func TestLoggerAndPanic(t *testing.T) {
 		w.WriteHeader(500)
 		w.Write([]byte("error 500"))
 	}
-	kami.Get("/test", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	kami.Post("/test", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		panic("test panic")
+	})
+	kami.Put("/ok", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
 	})
 
 	resp := httptest.NewRecorder()
-	req, err := http.NewRequest("GET", "/test", nil)
+	req, err := http.NewRequest("POST", "/test", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,19 +91,34 @@ func TestLoggerAndPanic(t *testing.T) {
 	if status != 500 {
 		t.Error("should return HTTP 500", status, "≠", 500)
 	}
+
+	// test loggers without panics
+	resp = httptest.NewRecorder()
+	req, err = http.NewRequest("PUT", "/ok", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	kami.Handler().ServeHTTP(resp, req)
+	if resp.Code != 200 {
+		t.Error("should return HTTP 200", resp.Code, "≠", 200)
+	}
+	if status != 200 {
+		t.Error("should return HTTP 200", status, "≠", 200)
+	}
+
 }
 
 func BenchmarkRoute(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		resp := httptest.NewRecorder()
-		req, _ := http.NewRequest("GET", "/v2/papers/3", nil)
+		req, _ := http.NewRequest("GET", "/v2/papers/500", nil)
 		kami.Handler().ServeHTTP(resp, req)
 	}
 }
 
 func BenchmarkPath(b *testing.B) {
 	m := make(map[string]bool)
-
 	for i := 0; i < b.N; i++ {
 		//path := "/v2/a/thing/qqq"
 		path := "/1/2/3/five"

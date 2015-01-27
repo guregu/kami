@@ -20,15 +20,15 @@ func newContextWithException(ctx context.Context, exception interface{}) context
 	return context.WithValue(ctx, panicKey, exception)
 }
 
-// Params returns the request URL parameter.
+// Params returns a request URL parameter, or a blank string if it doesn't exist.
 // For example, with the path /v2/papers/:page
 // use kami.Param(ctx, "page") to access the :page variable.
-func Param(ctx context.Context, name string) (string, bool) {
+func Param(ctx context.Context, name string) string {
 	params, ok := ctx.Value(paramsKey).(httprouter.Params)
 	if !ok {
-		return "", false
+		return ""
 	}
-	return params.ByName(name), true
+	return params.ByName(name)
 }
 
 // Exception gets the panic(details) when in a panic recovery.
