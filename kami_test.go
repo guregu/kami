@@ -89,6 +89,14 @@ func TestLoggerAndPanic(t *testing.T) {
 	}
 }
 
+func BenchmarkRoute(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		resp := httptest.NewRecorder()
+		req, _ := http.NewRequest("GET", "/v2/papers/3", nil)
+		kami.Handler().ServeHTTP(resp, req)
+	}
+}
+
 func BenchmarkPath(b *testing.B) {
 	m := make(map[string]bool)
 

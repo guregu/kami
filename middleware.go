@@ -21,25 +21,20 @@ func Use(path string, fn Middleware) {
 func run(ctx context.Context, w http.ResponseWriter, r *http.Request) (context.Context, bool) {
 	paths := strings.SplitAfter(r.URL.Path, "/")
 
-	var mws []Middleware
-
 	for i, _ := range paths {
 		route := strings.Join(paths[0:i+1], "")
-		m, ok := middleware[route]
+		mws, ok := middleware[route]
 		if !ok {
 			continue
 		}
-		mws = append(mws, m...)
-	}
-
-	for _, mw := range mws {
-		// return nil middleware to stop
-		result := mw(ctx, w, r)
-		if result == nil {
-			return ctx, false
+		for _, mw := range mws {
+			// return nil middleware to stop
+			result := mw(ctx, w, r)
+			if result == nil {
+				return ctx, false
+			}
+			ctx = result
 		}
-		ctx = result
 	}
-
 	return ctx, true
 }
