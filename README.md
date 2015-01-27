@@ -46,6 +46,7 @@ type Middleware func(context.Context, http.ResponseWriter, *http.Request) contex
 Middleware differs from a HandleFn in that it returns a new context. You can take advantage of this to build your context by registering middleware at the approriate paths. As a special case, you may return **nil** to halt execution of the middleware chain.
 
 Middleware is hierarchical. For example, a request for `/hello/greg` will run middleware registered under the following paths, in order:
+
 1. `/`
 2. `/hello/`
 3. `/hello/greg`
