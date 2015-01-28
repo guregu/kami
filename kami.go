@@ -15,10 +15,10 @@ var (
 	// Context is the root "god object" from which every request's context will derive
 	Context = context.Background()
 
-	// PanicHandler, if set, will be called on panics.
+	// PanicHandler will, if set, be called on panics.
 	// You can use kami.Exception(ctx) within the panic handler to get panic details.
 	PanicHandler HandleFn
-	// LogHandler, if set, will wrap every request and be called at the very end.
+	// LogHandler will, if set, wrap every request and be called at the very end.
 	LogHandler func(context.Context, mutil.WriterProxy, *http.Request)
 )
 
