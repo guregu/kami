@@ -4,10 +4,12 @@ import (
 	"net/http"
 	"strings"
 
-	_ "github.com/julienschmidt/httprouter"
 	"golang.org/x/net/context"
 )
 
+// Middleware is a function that takes the current request context and returns a new request context.
+// You can use middleware to build your context before your handler handles a request.
+// As a special case, middleware that returns nil will halt middleware and handler execution (LogHandler will still run).
 type Middleware func(context.Context, http.ResponseWriter, *http.Request) context.Context
 
 var middleware = make(map[string][]Middleware)
@@ -26,9 +28,8 @@ func Use(path string, fn Middleware) {
 // run returns false if it should stop early.
 func run(ctx context.Context, w http.ResponseWriter, r *http.Request) (context.Context, bool) {
 	paths := strings.SplitAfter(r.URL.Path, "/")
-
-	for i, _ := range paths {
-		route := strings.Join(paths[0:i+1], "")
+	for i := range paths {
+		route := strings.Join(paths[:i+1], "")
 		mws, ok := middleware[route]
 		if !ok {
 			continue

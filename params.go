@@ -7,20 +7,12 @@ import (
 
 type key int
 
-var (
-	paramsKey key = 0
-	panicKey      = 1
+const (
+	paramsKey key = iota
+	panicKey
 )
 
-func newContextWithParams(ctx context.Context, params httprouter.Params) context.Context {
-	return context.WithValue(ctx, paramsKey, params)
-}
-
-func newContextWithException(ctx context.Context, exception interface{}) context.Context {
-	return context.WithValue(ctx, panicKey, exception)
-}
-
-// Params returns a request URL parameter, or a blank string if it doesn't exist.
+// Param returns a request URL parameter, or a blank string if it doesn't exist.
 // For example, with the path /v2/papers/:page
 // use kami.Param(ctx, "page") to access the :page variable.
 func Param(ctx context.Context, name string) string {
@@ -31,7 +23,16 @@ func Param(ctx context.Context, name string) string {
 	return params.ByName(name)
 }
 
-// Exception gets the panic(details) when in a panic recovery.
+// Exception gets the "v" in panic(v). The panic details.
+// Only PanicHandler will receive a context you can use this with.
 func Exception(ctx context.Context) interface{} {
 	return ctx.Value(panicKey)
+}
+
+func newContextWithParams(ctx context.Context, params httprouter.Params) context.Context {
+	return context.WithValue(ctx, paramsKey, params)
+}
+
+func newContextWithException(ctx context.Context, exception interface{}) context.Context {
+	return context.WithValue(ctx, panicKey, exception)
 }

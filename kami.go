@@ -12,9 +12,14 @@ import (
 type HandleFn func(context.Context, http.ResponseWriter, *http.Request)
 
 var (
-	Context      = context.Background()                                  // the root "god object" of every request
-	PanicHandler HandleFn                                                // if exists, will be called on panics
-	LogHandler   func(context.Context, mutil.WriterProxy, *http.Request) // if exists, will run after each request
+	// Context is the root "god object" from which every request's context will derive
+	Context = context.Background()
+
+	// PanicHandler, if set, will be called on panics.
+	// You can use kami.Exception(ctx) within the panic handler to get panic details.
+	PanicHandler HandleFn
+	// LogHandler, if set, will wrap every request and be called at the very end.
+	LogHandler func(context.Context, mutil.WriterProxy, *http.Request)
 )
 
 var routes = httprouter.New()

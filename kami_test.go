@@ -5,7 +5,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/zenazn/goji/web/mutil"
@@ -114,20 +113,5 @@ func BenchmarkRoute(b *testing.B) {
 		resp := httptest.NewRecorder()
 		req, _ := http.NewRequest("GET", "/v2/papers/500", nil)
 		kami.Handler().ServeHTTP(resp, req)
-	}
-}
-
-func BenchmarkPath(b *testing.B) {
-	m := make(map[string]bool)
-	for i := 0; i < b.N; i++ {
-		//path := "/v2/a/thing/qqq"
-		path := "/1/2/3/five"
-		split := strings.SplitAfter(path, "/")
-		for j, _ := range split {
-			path := strings.Join(split[0:j+1], "")
-			_, ok := m[path]
-			_ = ok
-			// log.Println(j, path)
-		}
 	}
 }
