@@ -2,7 +2,6 @@ package kami
 
 import (
 	"net/http"
-	"strings"
 
 	"golang.org/x/net/context"
 )
@@ -27,20 +26,20 @@ func Use(path string, fn Middleware) {
 // run runs the middleware chain for a particular request.
 // run returns false if it should stop early.
 func run(ctx context.Context, w http.ResponseWriter, r *http.Request) (context.Context, bool) {
-	paths := strings.SplitAfter(r.URL.Path, "/")
-	for i := range paths {
-		route := strings.Join(paths[:i+1], "")
-		mws, ok := middleware[route]
-		if !ok {
-			continue
-		}
-		for _, mw := range mws {
-			// return nil middleware to stop
-			result := mw(ctx, w, r)
-			if result == nil {
-				return ctx, false
+	for i, c := range r.URL.Path {
+		if c == '/' || i == len(r.URL.Path)-1 {
+			mws, ok := middleware[r.URL.Path[:i+1]]
+			if !ok {
+				continue
 			}
-			ctx = result
+			for _, mw := range mws {
+				// return nil middleware to stop
+				result := mw(ctx, w, r)
+				if result == nil {
+					return ctx, false
+				}
+				ctx = result
+			}
 		}
 	}
 	return ctx, true
