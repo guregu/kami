@@ -168,9 +168,9 @@ func BenchmarkMiddleware(b *testing.B) {
 		return context.WithValue(ctx, "test", "ok")
 	})
 	kami.Get("/test", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-		// if ctx.Value("test") != "ok" {
-		// 	w.WriteHeader(501)
-		// }
+		if ctx.Value("test") != "ok" {
+			w.WriteHeader(501)
+		}
 	})
 	for n := 0; n < b.N; n++ {
 		resp := httptest.NewRecorder()
@@ -192,12 +192,12 @@ func BenchmarkMiddleware5(b *testing.B) {
 		})
 	}
 	kami.Get("/test", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-		// for _, n := range numbers {
-		// 	if ctx.Value(n) != n {
-		// 		w.WriteHeader(501)
-		// 		return
-		// 	}
-		// }
+		for _, n := range numbers {
+			if ctx.Value(n) != n {
+				w.WriteHeader(501)
+				return
+			}
+		}
 	})
 	for n := 0; n < b.N; n++ {
 		resp := httptest.NewRecorder()
