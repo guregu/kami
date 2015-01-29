@@ -83,4 +83,4 @@ MIT
 ### Acknowledgements
 
 * [HttpRouter](https://github.com/julienschmidt/httprouter): router
-* [Goji](https://github.com/zenazn/goji): einhorn, WriterProxy
+* [Goji](https://github.com/zenazn/goji): graceful, WriterProxy
