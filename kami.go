@@ -63,7 +63,10 @@ func Head(path string, handle HandleFn) {
 // It wraps a httprouter compatible request to run all the middleware, etc.
 func wrap(k HandleFn) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-		ctx := newContextWithParams(Context, params)
+		ctx := Context
+		if len(params) > 0 {
+			ctx = newContextWithParams(Context, params)
+		}
 		ranLogHandler := false
 
 		writer := w
@@ -100,4 +103,14 @@ func wrap(k HandleFn) httprouter.Handle {
 			wrapped.WriteHeader(500)
 		}
 	}
+}
+
+// Reset changes the root Context to context.Background().
+// It removes every handler and all middleware.
+func Reset() {
+	Context = context.Background()
+	PanicHandler = nil
+	LogHandler = nil
+	middleware = make(map[string][]Middleware)
+	routes = httprouter.New()
 }

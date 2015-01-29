@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 
 	"github.com/zenazn/goji/web/mutil"
@@ -13,7 +14,10 @@ import (
 	"github.com/guregu/kami"
 )
 
+var lol sync.Mutex
+
 func TestParams(t *testing.T) {
+	kami.Reset()
 	kami.Use("/", func(ctx context.Context, w http.ResponseWriter, r *http.Request) context.Context {
 		return context.WithValue(ctx, "test1", "1")
 	})
@@ -57,6 +61,7 @@ func TestParams(t *testing.T) {
 }
 
 func TestLoggerAndPanic(t *testing.T) {
+	kami.Reset()
 	// test logger with panic
 	status := 0
 	kami.LogHandler = func(ctx context.Context, w mutil.WriterProxy, r *http.Request) {
@@ -108,10 +113,100 @@ func TestLoggerAndPanic(t *testing.T) {
 
 }
 
-func BenchmarkRoute(b *testing.B) {
+func BenchmarkStaticRoute(b *testing.B) {
+	kami.Reset()
+	kami.Get("/hello", noop)
 	for n := 0; n < b.N; n++ {
 		resp := httptest.NewRecorder()
-		req, _ := http.NewRequest("GET", "/v2/papers/500", nil)
+		req, _ := http.NewRequest("GET", "/hello", nil)
 		kami.Handler().ServeHTTP(resp, req)
+		if resp.Code != 200 {
+			panic(resp.Code)
+		}
 	}
 }
+
+// Param benchmarks test accessing URL params
+
+func BenchmarkParameter(b *testing.B) {
+	kami.Reset()
+	kami.Get("/hello/:name", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+		kami.Param(ctx, "name")
+	})
+	for n := 0; n < b.N; n++ {
+		resp := httptest.NewRecorder()
+		req, _ := http.NewRequest("GET", "/hello/bob", nil)
+		kami.Handler().ServeHTTP(resp, req)
+		if resp.Code != 200 {
+			panic(resp.Code)
+		}
+	}
+}
+
+func BenchmarkParameter5(b *testing.B) {
+	kami.Reset()
+	kami.Get("/:a/:b/:c/:d/:e", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+		for _, v := range []string{"a", "b", "c", "d", "e"} {
+			kami.Param(ctx, v)
+		}
+	})
+	for n := 0; n < b.N; n++ {
+		resp := httptest.NewRecorder()
+		req, _ := http.NewRequest("GET", "/a/b/c/d/e", nil)
+		kami.Handler().ServeHTTP(resp, req)
+		if resp.Code != 200 {
+			panic(resp.Code)
+		}
+	}
+}
+
+// Middleware tests setting and using values with middleware
+
+func BenchmarkMiddleware(b *testing.B) {
+	kami.Reset()
+	kami.Use("/test", func(ctx context.Context, w http.ResponseWriter, r *http.Request) context.Context {
+		return context.WithValue(ctx, "test", "ok")
+	})
+	kami.Get("/test", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+		// if ctx.Value("test") != "ok" {
+		// 	w.WriteHeader(501)
+		// }
+	})
+	for n := 0; n < b.N; n++ {
+		resp := httptest.NewRecorder()
+		req, _ := http.NewRequest("GET", "/test", nil)
+		kami.Handler().ServeHTTP(resp, req)
+		if resp.Code != 200 {
+			panic(resp.Code)
+		}
+	}
+}
+
+func BenchmarkMiddleware5(b *testing.B) {
+	kami.Reset()
+	numbers := []int{1, 2, 3, 4, 5}
+	for _, n := range numbers {
+		n := n // wtf
+		kami.Use("/", func(ctx context.Context, w http.ResponseWriter, r *http.Request) context.Context {
+			return context.WithValue(ctx, n, n)
+		})
+	}
+	kami.Get("/test", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+		// for _, n := range numbers {
+		// 	if ctx.Value(n) != n {
+		// 		w.WriteHeader(501)
+		// 		return
+		// 	}
+		// }
+	})
+	for n := 0; n < b.N; n++ {
+		resp := httptest.NewRecorder()
+		req, _ := http.NewRequest("GET", "/test", nil)
+		kami.Handler().ServeHTTP(resp, req)
+		if resp.Code != 200 {
+			panic(resp.Code)
+		}
+	}
+}
+
+func noop(ctx context.Context, w http.ResponseWriter, r *http.Request) {}
