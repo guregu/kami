@@ -5,7 +5,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"sync"
 	"testing"
 
 	"github.com/zenazn/goji/web/mutil"
@@ -13,8 +12,6 @@ import (
 
 	"github.com/guregu/kami"
 )
-
-var lol sync.Mutex
 
 func TestParams(t *testing.T) {
 	kami.Reset()
@@ -112,6 +109,35 @@ func TestLoggerAndPanic(t *testing.T) {
 	}
 }
 
+func TestPanickingLogger(t *testing.T) {
+	kami.Reset()
+	kami.LogHandler = func(ctx context.Context, w mutil.WriterProxy, r *http.Request) {
+		t.Log("log handler")
+		panic("test panic")
+	}
+	kami.PanicHandler = func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+		t.Log("panic handler")
+		err := kami.Exception(ctx)
+		if err != "test panic" {
+			t.Error("unexpected exception:", err)
+		}
+		w.WriteHeader(500)
+		w.Write([]byte("error 500"))
+	}
+	kami.Post("/test", noop)
+
+	resp := httptest.NewRecorder()
+	req, err := http.NewRequest("POST", "/test", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	kami.Handler().ServeHTTP(resp, req)
+	if resp.Code != 500 {
+		t.Error("should return HTTP 500", resp.Code, "≠", 500)
+	}
+}
+
 func TestNotFound(t *testing.T) {
 	kami.Reset()
 	kami.Use("/missing/", func(ctx context.Context, w http.ResponseWriter, r *http.Request) context.Context {
@@ -150,102 +176,6 @@ func TestNotFoundDefault(t *testing.T) {
 	kami.Handler().ServeHTTP(resp, req)
 	if resp.Code != 404 {
 		t.Error("should return HTTP 404", resp.Code, "≠", 404)
-	}
-}
-
-func BenchmarkStaticRoute(b *testing.B) {
-	kami.Reset()
-	kami.Get("/hello", noop)
-	for n := 0; n < b.N; n++ {
-		resp := httptest.NewRecorder()
-		req, _ := http.NewRequest("GET", "/hello", nil)
-		kami.Handler().ServeHTTP(resp, req)
-		if resp.Code != 200 {
-			panic(resp.Code)
-		}
-	}
-}
-
-// Param benchmarks test accessing URL params
-
-func BenchmarkParameter(b *testing.B) {
-	kami.Reset()
-	kami.Get("/hello/:name", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-		kami.Param(ctx, "name")
-	})
-	for n := 0; n < b.N; n++ {
-		resp := httptest.NewRecorder()
-		req, _ := http.NewRequest("GET", "/hello/bob", nil)
-		kami.Handler().ServeHTTP(resp, req)
-		if resp.Code != 200 {
-			panic(resp.Code)
-		}
-	}
-}
-
-func BenchmarkParameter5(b *testing.B) {
-	kami.Reset()
-	kami.Get("/:a/:b/:c/:d/:e", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-		for _, v := range []string{"a", "b", "c", "d", "e"} {
-			kami.Param(ctx, v)
-		}
-	})
-	for n := 0; n < b.N; n++ {
-		resp := httptest.NewRecorder()
-		req, _ := http.NewRequest("GET", "/a/b/c/d/e", nil)
-		kami.Handler().ServeHTTP(resp, req)
-		if resp.Code != 200 {
-			panic(resp.Code)
-		}
-	}
-}
-
-// Middleware tests setting and using values with middleware
-
-func BenchmarkMiddleware(b *testing.B) {
-	kami.Reset()
-	kami.Use("/test", func(ctx context.Context, w http.ResponseWriter, r *http.Request) context.Context {
-		return context.WithValue(ctx, "test", "ok")
-	})
-	kami.Get("/test", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-		if ctx.Value("test") != "ok" {
-			w.WriteHeader(501)
-		}
-	})
-	for n := 0; n < b.N; n++ {
-		resp := httptest.NewRecorder()
-		req, _ := http.NewRequest("GET", "/test", nil)
-		kami.Handler().ServeHTTP(resp, req)
-		if resp.Code != 200 {
-			panic(resp.Code)
-		}
-	}
-}
-
-func BenchmarkMiddleware5(b *testing.B) {
-	kami.Reset()
-	numbers := []int{1, 2, 3, 4, 5}
-	for _, n := range numbers {
-		n := n // wtf
-		kami.Use("/", func(ctx context.Context, w http.ResponseWriter, r *http.Request) context.Context {
-			return context.WithValue(ctx, n, n)
-		})
-	}
-	kami.Get("/test", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-		for _, n := range numbers {
-			if ctx.Value(n) != n {
-				w.WriteHeader(501)
-				return
-			}
-		}
-	})
-	for n := 0; n < b.N; n++ {
-		resp := httptest.NewRecorder()
-		req, _ := http.NewRequest("GET", "/test", nil)
-		kami.Handler().ServeHTTP(resp, req)
-		if resp.Code != 200 {
-			panic(resp.Code)
-		}
 	}
 }
 

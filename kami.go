@@ -36,7 +36,7 @@ func Handler() http.Handler {
 
 // Handle registers an arbitrary method handler under the given path.
 func Handle(method, path string, handle HandleFn) {
-	routes.Handle(method, path, wrap(handle))
+	routes.Handle(method, path, bless(handle))
 }
 
 // Get registers a GET handler under the given path.
@@ -68,34 +68,35 @@ func Head(path string, handle HandleFn) {
 // If handle is nil, use the default http.NotFound behavior.
 func NotFound(handle HandleFn) {
 	// set up the default handler if needed
-	// we wrap this so middleware will still run for a 404 request
+	// we need to bless this so middleware will still run for a 404 request
 	if handle == nil {
 		handle = func(_ context.Context, w http.ResponseWriter, r *http.Request) {
 			http.NotFound(w, r)
 		}
 	}
 
-	h := wrap(handle)
+	h := bless(handle)
 	routes.NotFound = func(w http.ResponseWriter, r *http.Request) {
 		h(w, r, nil)
 	}
 }
 
-// wrap is the meat of kami.
-// It wraps a httprouter compatible request to run all the middleware, etc.
-func wrap(k HandleFn) httprouter.Handle {
+// bless is the meat of kami.
+// It wraps a HandleFn into an httprouter compatible request,
+// in order to run all the middleware and other special handlers.
+func bless(k HandleFn) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 		ctx := Context
 		if len(params) > 0 {
 			ctx = newContextWithParams(Context, params)
 		}
-		ranLogHandler := false
+		ranLogHandler := false // track this in case the log handler blows up
 
 		writer := w
-		var wrapped mutil.WriterProxy
+		var proxy mutil.WriterProxy
 		if LogHandler != nil {
-			wrapped = mutil.WrapWriter(w)
-			writer = wrapped
+			proxy = mutil.WrapWriter(w)
+			writer = proxy
 		}
 
 		if PanicHandler != nil {
@@ -105,9 +106,9 @@ func wrap(k HandleFn) httprouter.Handle {
 					PanicHandler(ctx, writer, r)
 
 					if LogHandler != nil && !ranLogHandler {
-						LogHandler(ctx, wrapped, r)
+						LogHandler(ctx, proxy, r)
 						// should only happen if header hasn't been written
-						wrapped.WriteHeader(500)
+						proxy.WriteHeader(500)
 					}
 				}
 			}()
@@ -120,9 +121,9 @@ func wrap(k HandleFn) httprouter.Handle {
 
 		if LogHandler != nil {
 			ranLogHandler = true
-			LogHandler(ctx, wrapped, r)
+			LogHandler(ctx, proxy, r)
 			// should only happen if header hasn't been written
-			wrapped.WriteHeader(500)
+			proxy.WriteHeader(500)
 		}
 	}
 }
