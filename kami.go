@@ -24,6 +24,11 @@ var (
 
 var routes = httprouter.New()
 
+func init() {
+	// set up the default 404 handler
+	NotFound(nil)
+}
+
 // Handler returns an http.Handler serving registered routes.
 func Handler() http.Handler {
 	return routes
@@ -57,6 +62,23 @@ func Patch(path string, handle HandleFn) {
 // Head registers a HEAD handler under the given path.
 func Head(path string, handle HandleFn) {
 	Handle("HEAD", path, handle)
+}
+
+// NotFound registers a special handler for unregistered (404) paths.
+// If handle is nil, use the default http.NotFound behavior.
+func NotFound(handle HandleFn) {
+	// set up the default handler if needed
+	// we wrap this so middleware will still run for a 404 request
+	if handle == nil {
+		handle = func(_ context.Context, w http.ResponseWriter, r *http.Request) {
+			http.NotFound(w, r)
+		}
+	}
+
+	h := wrap(handle)
+	routes.NotFound = func(w http.ResponseWriter, r *http.Request) {
+		h(w, r, nil)
+	}
 }
 
 // wrap is the meat of kami.
@@ -113,4 +135,5 @@ func Reset() {
 	LogHandler = nil
 	middleware = make(map[string][]Middleware)
 	routes = httprouter.New()
+	NotFound(nil)
 }

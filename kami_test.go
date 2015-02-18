@@ -110,7 +110,47 @@ func TestLoggerAndPanic(t *testing.T) {
 	if status != 200 {
 		t.Error("should return HTTP 200", status, "≠", 200)
 	}
+}
 
+func TestNotFound(t *testing.T) {
+	kami.Reset()
+	kami.Use("/missing/", func(ctx context.Context, w http.ResponseWriter, r *http.Request) context.Context {
+		return context.WithValue(ctx, "ok", true)
+	})
+	kami.NotFound(func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+		ok, _ := ctx.Value("ok").(bool)
+		if !ok {
+			w.WriteHeader(500)
+			return
+		}
+		w.WriteHeader(420)
+	})
+
+	resp := httptest.NewRecorder()
+	req, err := http.NewRequest("GET", "/missing/hello", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	kami.Handler().ServeHTTP(resp, req)
+	if resp.Code != 420 {
+		t.Error("should return HTTP 420", resp.Code, "≠", 420)
+	}
+}
+
+func TestNotFoundDefault(t *testing.T) {
+	kami.Reset()
+
+	resp := httptest.NewRecorder()
+	req, err := http.NewRequest("GET", "/missing/hello", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	kami.Handler().ServeHTTP(resp, req)
+	if resp.Code != 404 {
+		t.Error("should return HTTP 404", resp.Code, "≠", 404)
+	}
 }
 
 func BenchmarkStaticRoute(b *testing.B) {
