@@ -64,6 +64,11 @@ func Head(path string, handle HandleFn) {
 	Handle("HEAD", path, handle)
 }
 
+// Delete registers a DELETE handler under the given path.
+func Delete(path string, handle HandleFn) {
+	Handle("DELETE", path, handle)
+}
+
 // NotFound registers a special handler for unregistered (404) paths.
 // If handle is nil, use the default http.NotFound behavior.
 func NotFound(handle HandleFn) {
