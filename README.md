@@ -7,6 +7,8 @@ kami is designed to be used as central registration point for your routes, middl
 
 You are free to mount `kami.Handler()` wherever you wish, but a helpful `kami.Serve()` function is provided.
 
+Here's a presentation I did related to kami and x/net/context: http://go-talks.appspot.com/github.com/guregu/slides/kami/kami.slide
+
 ### Example
 
 ```go
