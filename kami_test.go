@@ -149,7 +149,7 @@ func TestNotFound(t *testing.T) {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		w.WriteHeader(http.StatusNotFound)
+		w.WriteHeader(420)
 	})
 
 	resp := httptest.NewRecorder()
