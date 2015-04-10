@@ -43,8 +43,8 @@ func TestParams(t *testing.T) {
 	}
 
 	kami.Handler().ServeHTTP(resp, req)
-	if resp.Code != 200 {
-		t.Error("should return HTTP OK", resp.Code, "≠", 200)
+	if resp.Code != http.StatusOK {
+		t.Error("should return HTTP StatusOK(200)", resp.Code, "≠", http.StatusOK)
 	}
 
 	data, err := ioutil.ReadAll(resp.Body)
@@ -69,8 +69,8 @@ func TestLoggerAndPanic(t *testing.T) {
 		if err != "test panic" {
 			t.Error("unexpected exception:", err)
 		}
-		w.WriteHeader(500)
-		w.Write([]byte("error 500"))
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("error StatusInternalServerError(500)"))
 	}
 	kami.Post("/test", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		panic("test panic")
@@ -86,11 +86,11 @@ func TestLoggerAndPanic(t *testing.T) {
 	}
 
 	kami.Handler().ServeHTTP(resp, req)
-	if resp.Code != 500 {
-		t.Error("should return HTTP 500", resp.Code, "≠", 500)
+	if resp.Code != http.StatusInternalServerError {
+		t.Error("should return HTTP StatusInternalServerError(500)", resp.Code, "≠", http.StatusInternalServerError)
 	}
-	if status != 500 {
-		t.Error("should return HTTP 500", status, "≠", 500)
+	if status != http.StatusInternalServerError {
+		t.Error("should return HTTP StatusInternalServerError(500)", status, "≠", http.StatusInternalServerError)
 	}
 
 	// test loggers without panics
@@ -101,11 +101,11 @@ func TestLoggerAndPanic(t *testing.T) {
 	}
 
 	kami.Handler().ServeHTTP(resp, req)
-	if resp.Code != 200 {
-		t.Error("should return HTTP 200", resp.Code, "≠", 200)
+	if resp.Code != http.StatusOK {
+		t.Error("should return HTTP StatusOK(200)", resp.Code, "≠", http.StatusOK)
 	}
-	if status != 200 {
-		t.Error("should return HTTP 200", status, "≠", 200)
+	if status != http.StatusOK {
+		t.Error("should return HTTP StatusOK(200)", status, "≠", http.StatusOK)
 	}
 }
 
@@ -121,8 +121,8 @@ func TestPanickingLogger(t *testing.T) {
 		if err != "test panic" {
 			t.Error("unexpected exception:", err)
 		}
-		w.WriteHeader(500)
-		w.Write([]byte("error 500"))
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("error StatusInternalServerError(500)"))
 	}
 	kami.Post("/test", noop)
 
@@ -133,8 +133,8 @@ func TestPanickingLogger(t *testing.T) {
 	}
 
 	kami.Handler().ServeHTTP(resp, req)
-	if resp.Code != 500 {
-		t.Error("should return HTTP 500", resp.Code, "≠", 500)
+	if resp.Code != http.StatusInternalServerError {
+		t.Error("should return HTTP StatusInternalServerError(500)", resp.Code, "≠", http.StatusInternalServerError)
 	}
 }
 
@@ -146,7 +146,7 @@ func TestNotFound(t *testing.T) {
 	kami.NotFound(func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		ok, _ := ctx.Value("ok").(bool)
 		if !ok {
-			w.WriteHeader(500)
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 		w.WriteHeader(420)
@@ -159,8 +159,8 @@ func TestNotFound(t *testing.T) {
 	}
 
 	kami.Handler().ServeHTTP(resp, req)
-	if resp.Code != 420 {
-		t.Error("should return HTTP 420", resp.Code, "≠", 420)
+	if resp.Code != http.StatusNotFound {
+		t.Error("should return HTTP StatusNotFound(404)", resp.Code, "≠", http.StatusNotFound)
 	}
 }
 
@@ -174,8 +174,8 @@ func TestNotFoundDefault(t *testing.T) {
 	}
 
 	kami.Handler().ServeHTTP(resp, req)
-	if resp.Code != 404 {
-		t.Error("should return HTTP 404", resp.Code, "≠", 404)
+	if resp.Code != http.StatusNotFound {
+		t.Error("should return HTTP StatusNotFound(404)", resp.Code, "≠", http.StatusNotFound)
 	}
 }
 

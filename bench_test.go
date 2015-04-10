@@ -17,7 +17,7 @@ func BenchmarkStaticRoute(b *testing.B) {
 		resp := httptest.NewRecorder()
 		req, _ := http.NewRequest("GET", "/hello", nil)
 		kami.Handler().ServeHTTP(resp, req)
-		if resp.Code != 200 {
+		if resp.Code != http.StatusOK {
 			panic(resp.Code)
 		}
 	}
@@ -34,7 +34,7 @@ func BenchmarkParameter(b *testing.B) {
 		resp := httptest.NewRecorder()
 		req, _ := http.NewRequest("GET", "/hello/bob", nil)
 		kami.Handler().ServeHTTP(resp, req)
-		if resp.Code != 200 {
+		if resp.Code != http.StatusOK {
 			panic(resp.Code)
 		}
 	}
@@ -51,7 +51,7 @@ func BenchmarkParameter5(b *testing.B) {
 		resp := httptest.NewRecorder()
 		req, _ := http.NewRequest("GET", "/a/b/c/d/e", nil)
 		kami.Handler().ServeHTTP(resp, req)
-		if resp.Code != 200 {
+		if resp.Code != http.StatusOK {
 			panic(resp.Code)
 		}
 	}
@@ -66,14 +66,14 @@ func BenchmarkMiddleware(b *testing.B) {
 	})
 	kami.Get("/test", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		if ctx.Value("test") != "ok" {
-			w.WriteHeader(501)
+			w.WriteHeader(http.StatusNotImplemented)
 		}
 	})
 	for n := 0; n < b.N; n++ {
 		resp := httptest.NewRecorder()
 		req, _ := http.NewRequest("GET", "/test", nil)
 		kami.Handler().ServeHTTP(resp, req)
-		if resp.Code != 200 {
+		if resp.Code != http.StatusOK {
 			panic(resp.Code)
 		}
 	}
@@ -91,7 +91,7 @@ func BenchmarkMiddleware5(b *testing.B) {
 	kami.Get("/test", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		for _, n := range numbers {
 			if ctx.Value(n) != n {
-				w.WriteHeader(501)
+				w.WriteHeader(http.StatusNotImplemented)
 				return
 			}
 		}
@@ -100,7 +100,7 @@ func BenchmarkMiddleware5(b *testing.B) {
 		resp := httptest.NewRecorder()
 		req, _ := http.NewRequest("GET", "/test", nil)
 		kami.Handler().ServeHTTP(resp, req)
-		if resp.Code != 200 {
+		if resp.Code != http.StatusOK {
 			panic(resp.Code)
 		}
 	}

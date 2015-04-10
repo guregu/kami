@@ -113,7 +113,7 @@ func bless(k HandleFn) httprouter.Handle {
 					if LogHandler != nil && !ranLogHandler {
 						LogHandler(ctx, proxy, r)
 						// should only happen if header hasn't been written
-						proxy.WriteHeader(500)
+						proxy.WriteHeader(http.StatusInternalServerError)
 					}
 				}
 			}()
@@ -128,7 +128,7 @@ func bless(k HandleFn) httprouter.Handle {
 			ranLogHandler = true
 			LogHandler(ctx, proxy, r)
 			// should only happen if header hasn't been written
-			proxy.WriteHeader(500)
+			proxy.WriteHeader(http.StatusInternalServerError)
 		}
 	}
 }
