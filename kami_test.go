@@ -64,14 +64,14 @@ func TestLoggerAndPanic(t *testing.T) {
 	kami.LogHandler = func(ctx context.Context, w mutil.WriterProxy, r *http.Request) {
 		status = w.Status()
 	}
-	kami.PanicHandler = func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	kami.PanicHandler = kami.HandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		err := kami.Exception(ctx)
 		if err != "test panic" {
 			t.Error("unexpected exception:", err)
 		}
 		w.WriteHeader(500)
 		w.Write([]byte("error 500"))
-	}
+	})
 	kami.Post("/test", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		panic("test panic")
 	})
@@ -115,7 +115,7 @@ func TestPanickingLogger(t *testing.T) {
 		t.Log("log handler")
 		panic("test panic")
 	}
-	kami.PanicHandler = func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	kami.PanicHandler = kami.HandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		t.Log("panic handler")
 		err := kami.Exception(ctx)
 		if err != "test panic" {
@@ -123,7 +123,7 @@ func TestPanickingLogger(t *testing.T) {
 		}
 		w.WriteHeader(500)
 		w.Write([]byte("error 500"))
-	}
+	})
 	kami.Post("/test", noop)
 
 	resp := httptest.NewRecorder()
