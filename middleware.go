@@ -1,6 +1,7 @@
 package kami
 
 import (
+	"fmt"
 	"net/http"
 
 	"golang.org/x/net/context"
@@ -11,13 +12,33 @@ import (
 // As a special case, middleware that returns nil will halt middleware and handler execution (LogHandler will still run).
 type Middleware func(context.Context, http.ResponseWriter, *http.Request) context.Context
 
+// MiddlewareType represents types that kami can convert to Middleware.
+// kami will try its best to convert standard, non-context middleware.
+// WARNING: kami middleware is run in sequence, but standard middleware is chained;
+// middleware that expects its code to run after the next handler, such as
+// standard loggers and panic handlers, will not work as expected.
+// Use kami.LogHandler and kami.PanicHandler instead.
+// Standard middleware that does not call the next handler to stop the request is supported.
+// The following concrete types are accepted:
+// 	- Middleware
+// 	- func(context.Context, http.ResponseWriter, *http.Request) context.Context
+// 	- func(http.Handler) http.Handler [will run sequentially, not in a chain]
+// 	- func(http.ContextHandler) http.ContextHandler [will run sequentially, not in a chain]
+type MiddlewareType interface{}
+
 var middleware = make(map[string][]Middleware)
 
 // Use registers middleware to run for the given path.
 // Middleware with be executed hierarchically, starting with the least specific path.
 // Middleware will be executed in order of registration.
 // Adding middleware is not threadsafe.
-func Use(path string, fn Middleware) {
+// WARNING: kami middleware is run in sequence, but standard middleware is chained;
+// middleware that expects its code to run after the next handler, such as
+// standard loggers and panic handlers, will not work as expected.
+// Use kami.LogHandler and kami.PanicHandler instead.
+// Standard middleware that does not call the next handler to stop the request is supported.
+func Use(path string, mw MiddlewareType) {
+	fn := convert(mw)
 	chain := middleware[path]
 	chain = append(chain, fn)
 	middleware[path] = chain
@@ -43,4 +64,44 @@ func run(ctx context.Context, w http.ResponseWriter, r *http.Request) (context.C
 		}
 	}
 	return ctx, true
+}
+
+// convert turns standard http middleware into kami Middleware if needed.
+func convert(mw MiddlewareType) Middleware {
+	switch x := mw.(type) {
+	case Middleware:
+		return x
+	case func(context.Context, http.ResponseWriter, *http.Request) context.Context:
+		return Middleware(x)
+	case func(http.Handler) http.Handler:
+		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) context.Context {
+			var dh dummyHandler
+			x(&dh).ServeHTTP(w, r)
+			if !dh {
+				return nil
+			}
+			return ctx
+		}
+	case func(ContextHandler) ContextHandler:
+		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) context.Context {
+			var dh dummyHandler
+			x(&dh).ServeHTTPContext(ctx, w, r)
+			if !dh {
+				return nil
+			}
+			return ctx
+		}
+	}
+	panic(fmt.Errorf("unsupported MiddlewareType: %T", mw))
+}
+
+// dummyHandler is used to keep track of whether the next middleware was called or not.
+type dummyHandler bool
+
+func (dh *dummyHandler) ServeHTTP(_ http.ResponseWriter, _ *http.Request) {
+	*dh = true
+}
+
+func (dh *dummyHandler) ServeHTTPContext(_ context.Context, _ http.ResponseWriter, _ *http.Request) {
+	*dh = true
 }

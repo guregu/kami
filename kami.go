@@ -32,38 +32,38 @@ func Handler() http.Handler {
 }
 
 // Handle registers an arbitrary method handler under the given path.
-func Handle(method, path string, handle HandlerType) {
-	routes.Handle(method, path, bless(wrap(handle)))
+func Handle(method, path string, handler HandlerType) {
+	routes.Handle(method, path, bless(wrap(handler)))
 }
 
 // Get registers a GET handler under the given path.
-func Get(path string, handle HandlerType) {
-	Handle("GET", path, handle)
+func Get(path string, handler HandlerType) {
+	Handle("GET", path, handler)
 }
 
 // Post registers a POST handler under the given path.
-func Post(path string, handle HandlerType) {
-	Handle("POST", path, handle)
+func Post(path string, handler HandlerType) {
+	Handle("POST", path, handler)
 }
 
 // Put registers a PUT handler under the given path.
-func Put(path string, handle HandlerType) {
-	Handle("PUT", path, handle)
+func Put(path string, handler HandlerType) {
+	Handle("PUT", path, handler)
 }
 
 // Patch registers a PATCH handler under the given path.
-func Patch(path string, handle HandlerType) {
-	Handle("PATCH", path, handle)
+func Patch(path string, handler HandlerType) {
+	Handle("PATCH", path, handler)
 }
 
 // Head registers a HEAD handler under the given path.
-func Head(path string, handle HandlerType) {
-	Handle("HEAD", path, handle)
+func Head(path string, handler HandlerType) {
+	Handle("HEAD", path, handler)
 }
 
 // Delete registers a DELETE handler under the given path.
-func Delete(path string, handle HandlerType) {
-	Handle("DELETE", path, handle)
+func Delete(path string, handler HandlerType) {
+	Handle("DELETE", path, handler)
 }
 
 // NotFound registers a special handler for unregistered (404) paths.
