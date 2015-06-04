@@ -73,19 +73,19 @@ func convert(mw MiddlewareType) Middleware {
 		return x
 	case func(context.Context, http.ResponseWriter, *http.Request) context.Context:
 		return Middleware(x)
-	case func(http.Handler) http.Handler:
+	case func(ContextHandler) ContextHandler:
 		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) context.Context {
 			var dh dummyHandler
-			x(&dh).ServeHTTP(w, r)
+			x(&dh).ServeHTTPContext(ctx, w, r)
 			if !dh {
 				return nil
 			}
 			return ctx
 		}
-	case func(ContextHandler) ContextHandler:
+	case func(http.Handler) http.Handler:
 		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) context.Context {
 			var dh dummyHandler
-			x(&dh).ServeHTTPContext(ctx, w, r)
+			x(&dh).ServeHTTP(w, r)
 			if !dh {
 				return nil
 			}
