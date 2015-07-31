@@ -3,8 +3,11 @@ package kami
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	"golang.org/x/net/context"
+
+	"github.com/go-kami/tree"
 )
 
 // Middleware is a function that takes the current request context and returns a new request context.
@@ -14,11 +17,7 @@ type Middleware func(context.Context, http.ResponseWriter, *http.Request) contex
 
 // MiddlewareType represents types that kami can convert to Middleware.
 // kami will try its best to convert standard, non-context middleware.
-// WARNING: kami middleware is run in sequence, but standard middleware is chained;
-// middleware that expects its code to run after the next handler, such as
-// standard loggers and panic handlers, will not work as expected.
-// Use kami.LogHandler and kami.PanicHandler instead.
-// Standard middleware that does not call the next handler to stop the request is supported.
+// See the Use function for important information about how kami middleware is run.
 // The following concrete types are accepted:
 // 	- Middleware
 // 	- func(context.Context, http.ResponseWriter, *http.Request) context.Context
@@ -26,22 +25,31 @@ type Middleware func(context.Context, http.ResponseWriter, *http.Request) contex
 // 	- func(http.ContextHandler) http.ContextHandler [will run sequentially, not in a chain]
 type MiddlewareType interface{}
 
-var middleware = make(map[string][]Middleware)
+var middleware = make(map[string][]Middleware) // "normal" non-wildcard middleware
+var wildcardMW = new(tree.Node)                // wildcard middleware
 
 // Use registers middleware to run for the given path.
 // Middleware with be executed hierarchically, starting with the least specific path.
 // Middleware will be executed in order of registration.
+// You may use wildcards in the path. Wildcard middleware will be run last,
+// after all hierarchical middleware has run.
+//
 // Adding middleware is not threadsafe.
+//
 // WARNING: kami middleware is run in sequence, but standard middleware is chained;
 // middleware that expects its code to run after the next handler, such as
 // standard loggers and panic handlers, will not work as expected.
 // Use kami.LogHandler and kami.PanicHandler instead.
 // Standard middleware that does not call the next handler to stop the request is supported.
 func Use(path string, mw MiddlewareType) {
-	fn := convert(mw)
-	chain := middleware[path]
-	chain = append(chain, fn)
-	middleware[path] = chain
+	if isWildcardPath(path) {
+		wildcardMW.AddRoute(path, convert(mw))
+	} else {
+		fn := convert(mw)
+		chain := middleware[path]
+		chain = append(chain, fn)
+		middleware[path] = chain
+	}
 }
 
 // run runs the middleware chain for a particular request.
@@ -61,6 +69,17 @@ func run(ctx context.Context, w http.ResponseWriter, r *http.Request) (context.C
 				}
 				ctx = result
 			}
+		}
+	}
+	// wildcard middlewares
+	if wild, params, _ := wildcardMW.GetValue(r.URL.Path); wild != nil {
+		if mw, ok := wild.(Middleware); ok {
+			ctx = mergeParams(ctx, params)
+			result := mw(ctx, w, r)
+			if result == nil {
+				return ctx, false
+			}
+			ctx = result
 		}
 	}
 	return ctx, true
@@ -104,4 +123,11 @@ func (dh *dummyHandler) ServeHTTP(_ http.ResponseWriter, _ *http.Request) {
 
 func (dh *dummyHandler) ServeHTTPContext(_ context.Context, _ http.ResponseWriter, _ *http.Request) {
 	*dh = true
+}
+
+func isWildcardPath(path string) bool {
+	if strings.Contains(path, "/:") || strings.Contains(path, "/*") {
+		return true
+	}
+	return false
 }

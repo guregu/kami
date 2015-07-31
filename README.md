@@ -86,7 +86,7 @@ func LoginRequired(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 
 kami can use vanilla http middleware as well. `kami.Use` accepts functions in the form of `func(next http.Handler) http.Handler`. Be advised that kami will run such middleware in sequence, not in a chain. This means that standard loggers and panic handlers won't work as you expect. You should use `kami.LogHandler` and `kami.PanicHandler` instead.
 
-The following example uses `goji/httpauth` to add HTTP Basic Authentication to paths under `/secret/`.
+The following example uses [goji/httpauth](https://github.com/goji/httpauth) to add HTTP Basic Authentication to paths under `/secret/`.
 
 ```go
 import (
