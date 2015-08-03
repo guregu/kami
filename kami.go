@@ -78,9 +78,9 @@ func NotFound(handler HandlerType) {
 	}
 
 	h := bless(wrap(handler))
-	routes.NotFound = func(w http.ResponseWriter, r *http.Request) {
+	routes.NotFound = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h(w, r, nil)
-	}
+	})
 }
 
 // bless is the meat of kami.
