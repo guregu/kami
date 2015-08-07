@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 
 	"github.com/zenazn/goji/web/mutil"
@@ -13,7 +14,7 @@ import (
 	"github.com/guregu/kami"
 )
 
-func TestParams(t *testing.T) {
+func TestKami(t *testing.T) {
 	kami.Reset()
 	kami.Use("/", func(ctx context.Context, w http.ResponseWriter, r *http.Request) context.Context {
 		return context.WithValue(ctx, "test1", "1")
@@ -69,8 +70,8 @@ func TestLoggerAndPanic(t *testing.T) {
 		if err != "test panic" {
 			t.Error("unexpected exception:", err)
 		}
-		w.WriteHeader(500)
-		w.Write([]byte("error 500"))
+		w.WriteHeader(http.StatusServiceUnavailable)
+		w.Write([]byte("error 503"))
 	})
 	kami.Post("/test", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		panic("test panic")
@@ -79,33 +80,15 @@ func TestLoggerAndPanic(t *testing.T) {
 		w.WriteHeader(200)
 	})
 
-	resp := httptest.NewRecorder()
-	req, err := http.NewRequest("POST", "/test", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	kami.Handler().ServeHTTP(resp, req)
-	if resp.Code != 500 {
-		t.Error("should return HTTP 500", resp.Code, "≠", 500)
-	}
-	if status != 500 {
-		t.Error("should return HTTP 500", status, "≠", 500)
+	expectResponseCode(t, "POST", "/test", http.StatusServiceUnavailable)
+	if status != http.StatusServiceUnavailable {
+		t.Error("log handler received wrong status code", status, "≠", http.StatusServiceUnavailable)
 	}
 
 	// test loggers without panics
-	resp = httptest.NewRecorder()
-	req, err = http.NewRequest("PUT", "/ok", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	kami.Handler().ServeHTTP(resp, req)
-	if resp.Code != 200 {
-		t.Error("should return HTTP 200", resp.Code, "≠", 200)
-	}
+	expectResponseCode(t, "PUT", "/ok", http.StatusOK)
 	if status != 200 {
-		t.Error("should return HTTP 200", status, "≠", 200)
+		t.Error("log handler received wrong status code", status, "≠", http.StatusOK)
 	}
 }
 
@@ -121,21 +104,12 @@ func TestPanickingLogger(t *testing.T) {
 		if err != "test panic" {
 			t.Error("unexpected exception:", err)
 		}
-		w.WriteHeader(500)
-		w.Write([]byte("error 500"))
+		w.WriteHeader(http.StatusServiceUnavailable)
+		w.Write([]byte("error 503"))
 	})
 	kami.Post("/test", noop)
 
-	resp := httptest.NewRecorder()
-	req, err := http.NewRequest("POST", "/test", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	kami.Handler().ServeHTTP(resp, req)
-	if resp.Code != 500 {
-		t.Error("should return HTTP 500", resp.Code, "≠", 500)
-	}
+	expectResponseCode(t, "POST", "/test", http.StatusServiceUnavailable)
 }
 
 func TestNotFound(t *testing.T) {
@@ -146,37 +120,37 @@ func TestNotFound(t *testing.T) {
 	kami.NotFound(func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		ok, _ := ctx.Value("ok").(bool)
 		if !ok {
-			w.WriteHeader(500)
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 		w.WriteHeader(420)
 	})
 
-	resp := httptest.NewRecorder()
-	req, err := http.NewRequest("GET", "/missing/hello", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	kami.Handler().ServeHTTP(resp, req)
-	if resp.Code != 420 {
-		t.Error("should return HTTP 420", resp.Code, "≠", 420)
-	}
+	expectResponseCode(t, "GET", "/missing/hello", 420)
 }
 
 func TestNotFoundDefault(t *testing.T) {
 	kami.Reset()
 
+	expectResponseCode(t, "GET", "/missing/hello", http.StatusNotFound)
+}
+
+func noop(ctx context.Context, w http.ResponseWriter, r *http.Request) {}
+
+func expectResponseCode(t *testing.T, method, path string, expected int) {
 	resp := httptest.NewRecorder()
-	req, err := http.NewRequest("GET", "/missing/hello", nil)
+	req, err := http.NewRequest(method, path, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	kami.Handler().ServeHTTP(resp, req)
-	if resp.Code != 404 {
-		t.Error("should return HTTP 404", resp.Code, "≠", 404)
+
+	text := http.StatusText(expected)
+	if text == "" {
+		text = strconv.Itoa(expected)
+	}
+	if resp.Code != expected {
+		t.Error("should return HTTP", text, resp.Code, "≠", expected)
 	}
 }
-
-func noop(ctx context.Context, w http.ResponseWriter, r *http.Request) {}

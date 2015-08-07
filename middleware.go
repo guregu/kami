@@ -42,7 +42,7 @@ var wildcardMW = new(tree.Node)                // wildcard middleware
 // Use kami.LogHandler and kami.PanicHandler instead.
 // Standard middleware that does not call the next handler to stop the request is supported.
 func Use(path string, mw MiddlewareType) {
-	if isWildcardPath(path) {
+	if containsWildcard(path) {
 		wildcardMW.AddRoute(path, convert(mw))
 	} else {
 		fn := convert(mw)
@@ -125,9 +125,6 @@ func (dh *dummyHandler) ServeHTTPContext(_ context.Context, _ http.ResponseWrite
 	*dh = true
 }
 
-func isWildcardPath(path string) bool {
-	if strings.Contains(path, "/:") || strings.Contains(path, "/*") {
-		return true
-	}
-	return false
+func containsWildcard(path string) bool {
+	return strings.Contains(path, "/:") || strings.Contains(path, "/*")
 }
