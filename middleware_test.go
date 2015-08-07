@@ -30,10 +30,10 @@ func TestWildcardMiddleware(t *testing.T) {
 	kami.Head("/user/:id", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		if ctx.Value("middleware id") != nil {
 			t.Error("wildcard middleware shouldn't have been called")
-			w.WriteHeader(500)
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		w.WriteHeader(200)
+		w.WriteHeader(http.StatusOK)
 	})
 
 	// normal case

@@ -5,7 +5,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"strconv"
 	"testing"
 
 	"github.com/zenazn/goji/web/mutil"
@@ -44,8 +43,8 @@ func TestKami(t *testing.T) {
 	}
 
 	kami.Handler().ServeHTTP(resp, req)
-	if resp.Code != 200 {
-		t.Error("should return HTTP OK", resp.Code, "≠", 200)
+	if resp.Code != http.StatusOK {
+		t.Error("should return HTTP OK", resp.Code, "≠", http.StatusOK)
 	}
 
 	data, err := ioutil.ReadAll(resp.Body)
@@ -71,13 +70,12 @@ func TestLoggerAndPanic(t *testing.T) {
 			t.Error("unexpected exception:", err)
 		}
 		w.WriteHeader(http.StatusServiceUnavailable)
-		w.Write([]byte("error 503"))
 	})
 	kami.Post("/test", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		panic("test panic")
 	})
 	kami.Put("/ok", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(200)
+		w.WriteHeader(http.StatusOK)
 	})
 
 	expectResponseCode(t, "POST", "/test", http.StatusServiceUnavailable)
@@ -87,7 +85,7 @@ func TestLoggerAndPanic(t *testing.T) {
 
 	// test loggers without panics
 	expectResponseCode(t, "PUT", "/ok", http.StatusOK)
-	if status != 200 {
+	if status != http.StatusOK {
 		t.Error("log handler received wrong status code", status, "≠", http.StatusOK)
 	}
 }
@@ -123,10 +121,10 @@ func TestNotFound(t *testing.T) {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		w.WriteHeader(420)
+		w.WriteHeader(http.StatusTeapot)
 	})
 
-	expectResponseCode(t, "GET", "/missing/hello", 420)
+	expectResponseCode(t, "GET", "/missing/hello", http.StatusTeapot)
 }
 
 func TestNotFoundDefault(t *testing.T) {
@@ -146,11 +144,7 @@ func expectResponseCode(t *testing.T, method, path string, expected int) {
 
 	kami.Handler().ServeHTTP(resp, req)
 
-	text := http.StatusText(expected)
-	if text == "" {
-		text = strconv.Itoa(expected)
-	}
 	if resp.Code != expected {
-		t.Error("should return HTTP", text, resp.Code, "≠", expected)
+		t.Error("should return HTTP", http.StatusText(expected)+":", resp.Code, "≠", expected)
 	}
 }
