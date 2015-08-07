@@ -33,6 +33,12 @@ func newContextWithParams(ctx context.Context, params httprouter.Params) context
 	return context.WithValue(ctx, paramsKey, params)
 }
 
+func mergeParams(ctx context.Context, params httprouter.Params) context.Context {
+	current, _ := ctx.Value(paramsKey).(httprouter.Params)
+	current = append(current, params...)
+	return context.WithValue(ctx, paramsKey, current)
+}
+
 func newContextWithException(ctx context.Context, exception interface{}) context.Context {
 	return context.WithValue(ctx, panicKey, exception)
 }
