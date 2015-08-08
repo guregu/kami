@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/zenazn/goji/web/mutil"
 	"golang.org/x/net/context"
 )
 
@@ -48,5 +47,3 @@ func wrap(h HandlerType) ContextHandler {
 	}
 	panic(fmt.Errorf("unsupported HandlerType: %T", h))
 }
-
-type logHandlerFunc func(context.Context, mutil.WriterProxy, *http.Request)

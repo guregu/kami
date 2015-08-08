@@ -100,7 +100,7 @@ func bless(k ContextHandler, base *context.Context, m *middlewares, panicHandler
 
 		writer := w
 		var proxy mutil.WriterProxy
-		if logHandler != nil {
+		if *logHandler != nil {
 			proxy = mutil.WrapWriter(w)
 			writer = proxy
 		}
