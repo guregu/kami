@@ -21,12 +21,36 @@ type Middleware func(context.Context, http.ResponseWriter, *http.Request) contex
 // The following concrete types are accepted:
 // 	- Middleware
 // 	- func(context.Context, http.ResponseWriter, *http.Request) context.Context
-// 	- func(http.Handler) http.Handler [will run sequentially, not in a chain]
-// 	- func(http.ContextHandler) http.ContextHandler [will run sequentially, not in a chain]
+// 	- func(http.Handler) http.Handler               [* see Use docs]
+// 	- func(http.ContextHandler) http.ContextHandler [* see Use docs]
 type MiddlewareType interface{}
 
-var middleware = make(map[string][]Middleware) // "normal" non-wildcard middleware
-var wildcardMW = new(tree.Node)                // wildcard middleware
+type middlewares struct {
+	hierarchy map[string][]Middleware
+	wildcards *tree.Node
+}
+
+func newMiddlewares() *middlewares {
+	return &middlewares{
+		hierarchy: make(map[string][]Middleware),
+		wildcards: new(tree.Node),
+	}
+}
+
+// Use registers middleware to run for the given path.
+// See the global Use function's documents for information on how middleware works.
+func (m *middlewares) Use(path string, mw MiddlewareType) {
+	if containsWildcard(path) {
+		m.wildcards.AddRoute(path, convert(mw))
+	} else {
+		fn := convert(mw)
+		chain := m.hierarchy[path]
+		chain = append(chain, fn)
+		m.hierarchy[path] = chain
+	}
+}
+
+var defaultMW = newMiddlewares()
 
 // Use registers middleware to run for the given path.
 // Middleware with be executed hierarchically, starting with the least specific path.
@@ -42,27 +66,21 @@ var wildcardMW = new(tree.Node)                // wildcard middleware
 // Use kami.LogHandler and kami.PanicHandler instead.
 // Standard middleware that does not call the next handler to stop the request is supported.
 func Use(path string, mw MiddlewareType) {
-	if containsWildcard(path) {
-		wildcardMW.AddRoute(path, convert(mw))
-	} else {
-		fn := convert(mw)
-		chain := middleware[path]
-		chain = append(chain, fn)
-		middleware[path] = chain
-	}
+	defaultMW.Use(path, mw)
 }
 
 // run runs the middleware chain for a particular request.
 // run returns false if it should stop early.
-func run(ctx context.Context, w http.ResponseWriter, r *http.Request) (context.Context, bool) {
+func (m middlewares) run(ctx context.Context, w http.ResponseWriter, r *http.Request) (context.Context, bool) {
+	// hierarchical middlewares
 	for i, c := range r.URL.Path {
 		if c == '/' || i == len(r.URL.Path)-1 {
-			wares, ok := middleware[r.URL.Path[:i+1]]
+			wares, ok := m.hierarchy[r.URL.Path[:i+1]]
 			if !ok {
 				continue
 			}
 			for _, mw := range wares {
-				// return nil middleware to stop
+				// return nil context to stop
 				result := mw(ctx, w, r)
 				if result == nil {
 					return ctx, false
@@ -72,7 +90,7 @@ func run(ctx context.Context, w http.ResponseWriter, r *http.Request) (context.C
 		}
 	}
 	// wildcard middlewares
-	if wild, params, _ := wildcardMW.GetValue(r.URL.Path); wild != nil {
+	if wild, params, _ := m.wildcards.GetValue(r.URL.Path); wild != nil {
 		if mw, ok := wild.(Middleware); ok {
 			ctx = mergeParams(ctx, params)
 			result := mw(ctx, w, r)

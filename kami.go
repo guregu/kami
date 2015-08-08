@@ -33,7 +33,7 @@ func Handler() http.Handler {
 
 // Handle registers an arbitrary method handler under the given path.
 func Handle(method, path string, handler HandlerType) {
-	routes.Handle(method, path, bless(wrap(handler)))
+	routes.Handle(method, path, defaultBless(wrap(handler)))
 }
 
 // Get registers a GET handler under the given path.
@@ -77,18 +77,22 @@ func NotFound(handler HandlerType) {
 		})
 	}
 
-	h := bless(wrap(handler))
+	h := defaultBless(wrap(handler))
 	routes.NotFound = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h(w, r, nil)
 	})
 }
 
+func defaultBless(k ContextHandler) httprouter.Handle {
+	return bless(k, &Context, defaultMW, &PanicHandler, &LogHandler)
+}
+
 // bless is the meat of kami.
 // It wraps a HandleFn into an httprouter compatible request,
 // in order to run all the middleware and other special handlers.
-func bless(k ContextHandler) httprouter.Handle {
+func bless(k ContextHandler, base *context.Context, m *middlewares, panicHandler *HandlerType, logHandler *func(context.Context, mutil.WriterProxy, *http.Request)) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-		ctx := Context
+		ctx := *base
 		if len(params) > 0 {
 			ctx = newContextWithParams(Context, params)
 		}
@@ -96,19 +100,19 @@ func bless(k ContextHandler) httprouter.Handle {
 
 		writer := w
 		var proxy mutil.WriterProxy
-		if LogHandler != nil {
+		if logHandler != nil {
 			proxy = mutil.WrapWriter(w)
 			writer = proxy
 		}
 
-		if PanicHandler != nil {
+		if *panicHandler != nil {
 			defer func() {
 				if err := recover(); err != nil {
 					ctx = newContextWithException(ctx, err)
-					wrap(PanicHandler).ServeHTTPContext(ctx, writer, r)
+					wrap(*panicHandler).ServeHTTPContext(ctx, writer, r)
 
-					if LogHandler != nil && !ranLogHandler {
-						LogHandler(ctx, proxy, r)
+					if *logHandler != nil && !ranLogHandler {
+						(*logHandler)(ctx, proxy, r)
 						// should only happen if header hasn't been written
 						proxy.WriteHeader(http.StatusInternalServerError)
 					}
@@ -116,14 +120,14 @@ func bless(k ContextHandler) httprouter.Handle {
 			}()
 		}
 
-		ctx, ok := run(ctx, writer, r)
+		ctx, ok := m.run(ctx, writer, r)
 		if ok {
 			k.ServeHTTPContext(ctx, writer, r)
 		}
 
-		if LogHandler != nil {
+		if *logHandler != nil {
 			ranLogHandler = true
-			LogHandler(ctx, proxy, r)
+			(*logHandler)(ctx, proxy, r)
 			// should only happen if header hasn't been written
 			proxy.WriteHeader(http.StatusInternalServerError)
 		}
@@ -136,7 +140,7 @@ func Reset() {
 	Context = context.Background()
 	PanicHandler = nil
 	LogHandler = nil
-	middleware = make(map[string][]Middleware)
+	defaultMW = newMiddlewares()
 	routes = httprouter.New()
 	NotFound(nil)
 }

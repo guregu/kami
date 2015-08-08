@@ -76,6 +76,8 @@ func Login(ctx context.Context, w http.ResponseWriter, r *http.Request) context.
 // LoginRequired stops the request if we don't have a user object
 func LoginRequired(ctx context.Context, w http.ResponseWriter, r *http.Request) context.Context {
 	if _, ok := user.FromContext(ctx); !ok {
+		w.WriteHeader(http.StatusForbidden)
+		// ... render 503 Forbidden page
 		return nil
 	}
 	return ctx
