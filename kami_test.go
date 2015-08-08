@@ -10,7 +10,7 @@ import (
 	"github.com/zenazn/goji/web/mutil"
 	"golang.org/x/net/context"
 
-	"github.com/guregu/kami"
+	"github.com/timcooijmans/kami"
 )
 
 func TestKami(t *testing.T) {

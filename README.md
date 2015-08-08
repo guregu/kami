@@ -1,13 +1,17 @@
-## kami [![GoDoc](https://godoc.org/github.com/guregu/kami?status.svg)](https://godoc.org/github.com/guregu/kami) [![Coverage](http://gocover.io/_badge/github.com/guregu/kami?0)](http://gocover.io/github.com/guregu/kami)
+## kami [![GoDoc](https://godoc.org/github.com/timcooijmans/kami?status.svg)](https://godoc.org/github.com/timcooijmans/kami) [![Coverage](http://gocover.io/_badge/github.com/timcooijmans/kami?0)](http://gocover.io/github.com/timcooijmans/kami)
 `import "github.com/guregu/kami"`
+
+### Note
+This is a fork of the original kami framework (https://github.com/guregu/kami) that uses structs instead of global variables for the server state and config.
+
 
 kami (神) is a tiny web framework using [x/net/context](https://blog.golang.org/context) for request context and [HttpRouter](https://github.com/julienschmidt/httprouter) for routing. It includes a simple system for running hierarchical middleware before requests, in addition to log and panic hooks. Graceful restart via einhorn is also supported.
 
-kami is designed to be used as central registration point for your routes, middleware, and context "god object", so kami has no concept of multiple muxes. 
+kami is designed to be used as central registration point for your routes, middleware, and context "god object", so kami has no concept of multiple muxes.
 
 You are free to mount `kami.Handler()` wherever you wish, but a helpful `kami.Serve()` function is provided.
 
-Here is a [presentation about the birth of kami](http://go-talks.appspot.com/github.com/guregu/slides/kami/kami.slide), explaining some of the design choices. 
+Here is a [presentation about the birth of kami](http://go-talks.appspot.com/github.com/guregu/slides/kami/kami.slide), explaining some of the design choices.
 
 ### Example
 
@@ -41,9 +45,9 @@ func main() {
   * `func(http.ResponseWriter, *http.Request)`
 * All contexts that kami uses are descended from `kami.Context`: this is the "god object" and the namesake of this project. By default, this is `context.Background()`, but feel free to replace it with a pre-initialized context suitable for your application.
 * Add middleware with `kami.Use("path", kami.Middleware)`. More on middleware below.
-* You can provide a panic handler by setting `kami.PanicHandler`. When the panic handler is called, you can access the panic error with `kami.Exception(ctx)`. 
+* You can provide a panic handler by setting `kami.PanicHandler`. When the panic handler is called, you can access the panic error with `kami.Exception(ctx)`.
 * You can also provide a `kami.LogHandler` that will wrap every request. `kami.LogHandler` has a different function signature, taking a WriterProxy that has access to the response status code, etc.
-* Use `kami.Serve()` to gracefully serve your application, or mount `kami.Handler()` somewhere convenient. 
+* Use `kami.Serve()` to gracefully serve your application, or mount `kami.Handler()` somewhere convenient.
 
 ### Middleware
 ```go
@@ -79,12 +83,12 @@ func LoginRequired(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 		return nil
 	}
 	return ctx
-}	
+}
 ```
 
 #### Named parameters, wildcards, and middleware
 
-Named parameters and wildcards in middleware are supported now. Middleware registered under a path with a wildcard will run **after** all hierarchical middleware. 
+Named parameters and wildcards in middleware are supported now. Middleware registered under a path with a wildcard will run **after** all hierarchical middleware.
 
 ```go
 kami.Use("/user/:id/edit", CheckAdminPermissions)

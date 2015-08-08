@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/guregu/kami"
+	"github.com/timcooijmans/kami"
 	"golang.org/x/net/context"
 )
 
