@@ -37,11 +37,7 @@ func NewServer() *Server {
 
 // DefaultServer holds an by-default initialized Server that is used by the
 // methods that do not define a Server.
-var DefaultServer *Server
-
-func init() {
-	DefaultServer = NewServer()
-}
+var DefaultServer = NewServer()
 
 // Handler returns an http.Handler serving registered routes for the server.
 func (s *Server) Handler() http.Handler {
