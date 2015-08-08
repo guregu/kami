@@ -25,6 +25,7 @@ type ContextHandler interface {
 // HandlerFunc is like http.HandlerFunc with context.
 type HandlerFunc func(context.Context, http.ResponseWriter, *http.Request)
 
+// ServeHTTPContext is like http.ServeHTTP but with context.
 func (h HandlerFunc) ServeHTTPContext(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	h(ctx, w, r)
 }

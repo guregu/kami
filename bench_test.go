@@ -7,7 +7,7 @@ import (
 
 	"golang.org/x/net/context"
 
-	"github.com/guregu/kami"
+	"github.com/timcooijmans/kami"
 )
 
 func BenchmarkStaticRoute(b *testing.B) {

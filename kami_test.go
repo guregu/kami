@@ -10,7 +10,7 @@ import (
 	"github.com/zenazn/goji/web/mutil"
 	"golang.org/x/net/context"
 
-	"github.com/guregu/kami"
+	"github.com/timcooijmans/kami"
 )
 
 func TestKami(t *testing.T) {
@@ -61,10 +61,10 @@ func TestLoggerAndPanic(t *testing.T) {
 	kami.Reset()
 	// test logger with panic
 	status := 0
-	kami.LogHandler = func(ctx context.Context, w mutil.WriterProxy, r *http.Request) {
+	kami.DefaultServer.LogHandler = func(ctx context.Context, w mutil.WriterProxy, r *http.Request) {
 		status = w.Status()
 	}
-	kami.PanicHandler = kami.HandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	kami.DefaultServer.PanicHandler = kami.HandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		err := kami.Exception(ctx)
 		if err != "test panic" {
 			t.Error("unexpected exception:", err)
@@ -92,11 +92,11 @@ func TestLoggerAndPanic(t *testing.T) {
 
 func TestPanickingLogger(t *testing.T) {
 	kami.Reset()
-	kami.LogHandler = func(ctx context.Context, w mutil.WriterProxy, r *http.Request) {
+	kami.DefaultServer.LogHandler = func(ctx context.Context, w mutil.WriterProxy, r *http.Request) {
 		t.Log("log handler")
 		panic("test panic")
 	}
-	kami.PanicHandler = kami.HandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	kami.DefaultServer.PanicHandler = kami.HandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		t.Log("panic handler")
 		err := kami.Exception(ctx)
 		if err != "test panic" {

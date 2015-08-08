@@ -6,8 +6,6 @@ import (
 	"strings"
 
 	"golang.org/x/net/context"
-
-	"github.com/go-kami/tree"
 )
 
 // Middleware is a function that takes the current request context and returns a new request context.
@@ -25,9 +23,6 @@ type Middleware func(context.Context, http.ResponseWriter, *http.Request) contex
 // 	- func(http.ContextHandler) http.ContextHandler [will run sequentially, not in a chain]
 type MiddlewareType interface{}
 
-var middleware = make(map[string][]Middleware) // "normal" non-wildcard middleware
-var wildcardMW = new(tree.Node)                // wildcard middleware
-
 // Use registers middleware to run for the given path.
 // Middleware with be executed hierarchically, starting with the least specific path.
 // Middleware will be executed in order of registration.
@@ -41,23 +36,28 @@ var wildcardMW = new(tree.Node)                // wildcard middleware
 // standard loggers and panic handlers, will not work as expected.
 // Use kami.LogHandler and kami.PanicHandler instead.
 // Standard middleware that does not call the next handler to stop the request is supported.
-func Use(path string, mw MiddlewareType) {
+func (s *Server) Use(path string, mw MiddlewareType) {
 	if containsWildcard(path) {
-		wildcardMW.AddRoute(path, convert(mw))
+		s.wildcardMW.AddRoute(path, convert(mw))
 	} else {
 		fn := convert(mw)
-		chain := middleware[path]
+		chain := s.middleware[path]
 		chain = append(chain, fn)
-		middleware[path] = chain
+		s.middleware[path] = chain
 	}
+}
+
+// Use for the default server
+func Use(path string, mw MiddlewareType) {
+	DefaultServer.Use(path, mw)
 }
 
 // run runs the middleware chain for a particular request.
 // run returns false if it should stop early.
-func run(ctx context.Context, w http.ResponseWriter, r *http.Request) (context.Context, bool) {
+func (s *Server) run(ctx context.Context, w http.ResponseWriter, r *http.Request) (context.Context, bool) {
 	for i, c := range r.URL.Path {
 		if c == '/' || i == len(r.URL.Path)-1 {
-			wares, ok := middleware[r.URL.Path[:i+1]]
+			wares, ok := s.middleware[r.URL.Path[:i+1]]
 			if !ok {
 				continue
 			}
@@ -72,7 +72,7 @@ func run(ctx context.Context, w http.ResponseWriter, r *http.Request) (context.C
 		}
 	}
 	// wildcard middlewares
-	if wild, params, _ := wildcardMW.GetValue(r.URL.Path); wild != nil {
+	if wild, params, _ := s.wildcardMW.GetValue(r.URL.Path); wild != nil {
 		if mw, ok := wild.(Middleware); ok {
 			ctx = mergeParams(ctx, params)
 			result := mw(ctx, w, r)
