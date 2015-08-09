@@ -84,7 +84,7 @@ func (s *Server) NotFound(handler HandlerType) {
 	}
 
 	h := s.bless(wrap(handler))
-	routes.NotFound = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	s.routes.NotFound = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h(w, r, nil)
 	})
 }
