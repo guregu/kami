@@ -12,6 +12,8 @@ import (
 type Server struct {
 	// Context is the root "god object" for this server,
 	// from which every request's context will derive.
+	// It is ignored on App Engine, where the request-specific
+	// App Engine context is used instead.
 	Context context.Context
 	// PanicHandler will, if set, be called on panics.
 	// You can use kami.Exception(ctx) within the panic handler to get panic details.
