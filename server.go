@@ -12,8 +12,6 @@ import (
 type Server struct {
 	// Context is the root "god object" for this server,
 	// from which every request's context will derive.
-	// It is ignored on App Engine, where the request-specific
-	// App Engine context is used instead.
 	Context context.Context
 	// PanicHandler will, if set, be called on panics.
 	// You can use kami.Exception(ctx) within the panic handler to get panic details.
@@ -67,6 +65,11 @@ func (s *Server) Patch(path string, handler HandlerType) {
 // Head registers a HEAD handler under the given path.
 func (s *Server) Head(path string, handler HandlerType) {
 	s.Handle("HEAD", path, handler)
+}
+
+// Head registers a OPTIONS handler under the given path.
+func (s *Server) Options(path string, handler HandlerType) {
+	s.Handle("OPTIONS", path, handler)
 }
 
 // Delete registers a DELETE handler under the given path.

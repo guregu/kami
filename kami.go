@@ -10,8 +10,6 @@ import (
 
 var (
 	// Context is the root "god object" from which every request's context will derive.
-	// It is ignored on App Engine, where the request-specific App Engine context is used
-	// instead.
 	Context = context.Background()
 
 	// PanicHandler will, if set, be called on panics.
@@ -61,6 +59,11 @@ func Patch(path string, handler HandlerType) {
 // Head registers a HEAD handler under the given path.
 func Head(path string, handler HandlerType) {
 	Handle("HEAD", path, handler)
+}
+
+// Head registers a OPTIONS handler under the given path.
+func Options(path string, handler HandlerType) {
+	Handle("OPTIONS", path, handler)
 }
 
 // Delete registers a DELETE handler under the given path.
