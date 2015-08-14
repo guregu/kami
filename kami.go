@@ -9,7 +9,9 @@ import (
 )
 
 var (
-	// Context is the root "god object" from which every request's context will derive
+	// Context is the root "god object" from which every request's context will derive.
+	// It is ignored on App Engine, where the request-specific App Engine context is used
+	// instead.
 	Context = context.Background()
 
 	// PanicHandler will, if set, be called on panics.
@@ -92,9 +94,9 @@ func defaultBless(k ContextHandler) httprouter.Handle {
 // in order to run all the middleware and other special handlers.
 func bless(k ContextHandler, base *context.Context, m *middlewares, panicHandler *HandlerType, logHandler *func(context.Context, mutil.WriterProxy, *http.Request)) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-		ctx := *base
+		ctx := defaultContext(r, *base)
 		if len(params) > 0 {
-			ctx = newContextWithParams(Context, params)
+			ctx = newContextWithParams(ctx, params)
 		}
 		ranLogHandler := false // track this in case the log handler blows up
 
