@@ -94,7 +94,7 @@ func defaultBless(k ContextHandler) httprouter.Handle {
 // in order to run all the middleware and other special handlers.
 func bless(k ContextHandler, base *context.Context, m *middlewares, panicHandler *HandlerType, logHandler *func(context.Context, mutil.WriterProxy, *http.Request)) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-		ctx := defaultContext(r, *base)
+		ctx := defaultContext(*base, r)
 		if len(params) > 0 {
 			ctx = newContextWithParams(ctx, params)
 		}

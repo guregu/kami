@@ -9,6 +9,6 @@ import (
 	"google.golang.org/appengine"
 )
 
-func defaultContext(r *http.Request, c context.Context) context.Context {
-	return appengine.NewContext(r)
+func defaultContext(ctx context.Context, r *http.Request) context.Context {
+	return appengine.WithContext(ctx, r)
 }

@@ -8,6 +8,6 @@ import (
 	"golang.org/x/net/context"
 )
 
-func defaultContext(r *http.Request, c context.Context) context.Context {
-	return c
+func defaultContext(ctx context.Context, r *http.Request) context.Context {
+	return ctx
 }
