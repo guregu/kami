@@ -66,6 +66,11 @@ func Delete(path string, handler HandlerType) {
 	Handle("DELETE", path, handler)
 }
 
+// Options registers a OPTIONS handler under the given path.
+func Options(path string, handler HandlerType) {
+	Handle("OPTIONS", path, handler)
+}
+
 // NotFound registers a special handler for unregistered (404) paths.
 // If handle is nil, use the default http.NotFound behavior.
 func NotFound(handler HandlerType) {
