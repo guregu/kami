@@ -3,7 +3,7 @@
 
 kami (神) is a tiny web framework using [x/net/context](https://blog.golang.org/context) for request context and [HttpRouter](https://github.com/julienschmidt/httprouter) for routing. It includes a simple system for running hierarchical middleware before requests, in addition to log and panic hooks. Graceful restart via einhorn is also supported.
 
-kami is designed to be used as central registration point for your routes, middleware, and context "god object", so kami has no concept of multiple muxes. 
+kami is designed to be used as central registration point for your routes, middleware, and context "god object". You are encouraged to use the global functions. However, kami now supports multiple muxes with `kami.New()`. 
 
 You are free to mount `kami.Handler()` wherever you wish, but a helpful `kami.Serve()` function is provided.
 
@@ -40,6 +40,7 @@ func main() {
   * types that implement `http.Handler`
   * `func(http.ResponseWriter, *http.Request)`
 * All contexts that kami uses are descended from `kami.Context`: this is the "god object" and the namesake of this project. By default, this is `context.Background()`, but feel free to replace it with a pre-initialized context suitable for your application.
+* Builds targeting Google App Engine will automatically wrap the "god object" Context with App Engine's per-request Context.
 * Add middleware with `kami.Use("path", kami.Middleware)`. More on middleware below.
 * You can provide a panic handler by setting `kami.PanicHandler`. When the panic handler is called, you can access the panic error with `kami.Exception(ctx)`. 
 * You can also provide a `kami.LogHandler` that will wrap every request. `kami.LogHandler` has a different function signature, taking a WriterProxy that has access to the response status code, etc.
@@ -76,6 +77,8 @@ func Login(ctx context.Context, w http.ResponseWriter, r *http.Request) context.
 // LoginRequired stops the request if we don't have a user object
 func LoginRequired(ctx context.Context, w http.ResponseWriter, r *http.Request) context.Context {
 	if _, ok := user.FromContext(ctx); !ok {
+		w.WriteHeader(http.StatusForbidden)
+		// ... render 503 Forbidden page
 		return nil
 	}
 	return ctx
@@ -106,6 +109,37 @@ func main() {
 	kami.Use("/secret/", httpauth.SimpleBasicAuth("username", "password"))
 	kami.Get("/secret/message", secretMessageHandler)
 	kami.Serve()
+}
+```
+
+### Independent stacks with `*kami.Mux`
+
+kami was originally designed to be the "glue" between multiple packages in a complex web application. The global functions and `kami.Context` are an easy way for your packages to work together. However, if you would like to use kami as an embedded server within another app, serve two separate kami stacks on different ports, or otherwise would like to have an non-global version of kami, `kami.New()` may come in handy.
+
+Calling `kami.New()` returns a fresh `*kami.Mux`, a completely independent kami stack. Changes to `kami.Context`, paths registered with `kami.Get()` et al, and global middleware registered with `kami.Use()` will not affect a `*kami.Mux`. 
+
+Instead, with `mux := kami.New()` you can change `mux.Context`, call `mux.Use()`, `mux.Get()`, `mux.NotFound()`, etc. 
+
+`*kami.Mux` implements `http.Handler`, so you may use it however you'd like!
+
+```go
+// package admin is an admin panel web server plugin
+package admin
+
+import (
+	"net/http"
+	"github.com/guregu/kami"
+)
+
+// automatically mount our secret admin stuff
+func init() {
+	mux := kami.New()
+	mux.Context = adminContext
+	mux.Use("/", authorize)
+	mux.Get("/admin/memstats", memoryStats)
+	mux.Post("/admin/die", shutdown) // 😱
+	//  ...
+	http.Handle("/admin/", mux)
 }
 ```
 
