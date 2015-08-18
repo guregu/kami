@@ -3,7 +3,7 @@
 
 kami (神) is a tiny web framework using [x/net/context](https://blog.golang.org/context) for request context and [HttpRouter](https://github.com/julienschmidt/httprouter) for routing. It includes a simple system for running hierarchical middleware before requests, in addition to log and panic hooks. Graceful restart via einhorn is also supported.
 
-kami is designed to be used as central registration point for your routes, middleware, and context "god object", so kami has no concept of multiple muxes. 
+kami is designed to be used as central registration point for your routes, middleware, and context "god object". You are encouraged to use the global functions. However, kami now supports multiple muxes with `kami.New()`. 
 
 You are free to mount `kami.Handler()` wherever you wish, but a helpful `kami.Serve()` function is provided.
 
@@ -40,6 +40,7 @@ func main() {
   * types that implement `http.Handler`
   * `func(http.ResponseWriter, *http.Request)`
 * All contexts that kami uses are descended from `kami.Context`: this is the "god object" and the namesake of this project. By default, this is `context.Background()`, but feel free to replace it with a pre-initialized context suitable for your application.
+* Builds targeting Google App Engine will automatically wrap the "god object" Context with App Engine's per-request Context.
 * Add middleware with `kami.Use("path", kami.Middleware)`. More on middleware below.
 * You can provide a panic handler by setting `kami.PanicHandler`. When the panic handler is called, you can access the panic error with `kami.Exception(ctx)`. 
 * You can also provide a `kami.LogHandler` that will wrap every request. `kami.LogHandler` has a different function signature, taking a WriterProxy that has access to the response status code, etc.
@@ -110,6 +111,14 @@ func main() {
 	kami.Serve()
 }
 ```
+
+### Independent stacks with `*kami.Mux`
+
+kami was originally designed to be the "glue" between multiple packages in a complex web application. You are encouraged to use the global functions and `kami.Context` as a central registration point. However, if you would like to use kami as an embedded server within another app, serve two separate kami stacks on different ports, or accomplish other such complex tasks, `kami.New()` may come in handy.
+
+`kami.New()` returns a new `*kami.Mux`, a completely independent kami stack. Changes to `kami.Context`, paths registered with `kami.Get()` and others, and global middleware registered with `kami.Use()` will not affect a `*kami.Mux`. Instead, you can change `mux.Context`, call `mux.Use()`, `mux.Get()`, `mux.NotFound()`, etc. 
+
+`*kami.Mux` implements `http.Handler`, so you may use it however you'd like!
 
 ### License
 
