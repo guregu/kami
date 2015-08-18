@@ -40,7 +40,7 @@ func TestKamiMux(t *testing.T) {
 	})
 
 	// 404 stuff
-	mux.Use("/missing/", func(ctx context.Context, w http.ResponseWriter, r *http.Request) context.Context {
+	mux.Use("/mux/missing/", func(ctx context.Context, w http.ResponseWriter, r *http.Request) context.Context {
 		return context.WithValue(ctx, "ok", true)
 	})
 	mux.NotFound(func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
@@ -78,13 +78,12 @@ func TestKamiMux(t *testing.T) {
 
 	// test 404
 	resp = httptest.NewRecorder()
-	req, err = http.NewRequest("GET", "/missing/hello", nil)
+	req, err = http.NewRequest("GET", "/mux/missing/hello", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// use mux instead of stdMux because http.ServeMux does its own 404 handling
-	mux.ServeHTTP(resp, req)
+	stdMux.ServeHTTP(resp, req)
 	if resp.Code != http.StatusTeapot {
 		t.Error("should return HTTP Teapot", resp.Code, "≠", http.StatusTeapot)
 	}
