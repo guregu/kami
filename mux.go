@@ -24,7 +24,7 @@ type Mux struct {
 }
 
 // New creates a new independent kami router and middleware stack.
-// It is totally separate from the global kami.Context.
+// It is totally separate from the global kami.Context and middleware stack.
 func New() *Mux {
 	return &Mux{
 		Context:     context.Background(),
