@@ -114,11 +114,34 @@ func main() {
 
 ### Independent stacks with `*kami.Mux`
 
-kami was originally designed to be the "glue" between multiple packages in a complex web application. You are encouraged to use the global functions and `kami.Context` as a central registration point. However, if you would like to use kami as an embedded server within another app, serve two separate kami stacks on different ports, or accomplish other such complex tasks, `kami.New()` may come in handy.
+kami was originally designed to be the "glue" between multiple packages in a complex web application. The global functions and `kami.Context` are an easy way for your packages to work together. However, if you would like to use kami as an embedded server within another app, serve two separate kami stacks on different ports, or otherwise would like to have an non-global version of kami, `kami.New()` may come in handy.
 
-`kami.New()` returns a new `*kami.Mux`, a completely independent kami stack. Changes to `kami.Context`, paths registered with `kami.Get()` and others, and global middleware registered with `kami.Use()` will not affect a `*kami.Mux`. Instead, you can change `mux.Context`, call `mux.Use()`, `mux.Get()`, `mux.NotFound()`, etc. 
+Calling `kami.New()` returns a fresh `*kami.Mux`, a completely independent kami stack. Changes to `kami.Context`, paths registered with `kami.Get()` et al, and global middleware registered with `kami.Use()` will not affect a `*kami.Mux`. 
+
+Instead, with `mux := kami.New()` you can change `mux.Context`, call `mux.Use()`, `mux.Get()`, `mux.NotFound()`, etc. 
 
 `*kami.Mux` implements `http.Handler`, so you may use it however you'd like!
+
+```go
+// package admin is an admin panel web server plugin
+package admin
+
+import (
+	"net/http"
+	"github.com/guregu/kami"
+)
+
+// automatically mount our secret admin stuff
+func init() {
+	mux := kami.New()
+	mux.Context = adminContext
+	mux.Use("/", authorize)
+	mux.Get("/admin/memstats", memoryStats)
+	mux.Post("/admin/die", shutdown) // 😱
+	//  ...
+	http.Handle("/admin/", mux)
+}
+```
 
 ### License
 

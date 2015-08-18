@@ -93,7 +93,7 @@ func defaultBless(k ContextHandler) httprouter.Handle {
 }
 
 // bless is the meat of kami.
-// It wraps a HandleFn into an httprouter compatible request,
+// It wraps a ContextHandler into an httprouter compatible request,
 // in order to run all the middleware and other special handlers.
 func bless(k ContextHandler, base *context.Context, m *middlewares, panicHandler *HandlerType, logHandler *func(context.Context, mutil.WriterProxy, *http.Request)) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
