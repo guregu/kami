@@ -52,6 +52,22 @@ func TestKamiMux(t *testing.T) {
 		w.WriteHeader(http.StatusTeapot)
 	})
 
+	// 405 stuff
+	mux.Use("/mux/method_not_allowed", func(ctx context.Context, w http.ResponseWriter, r *http.Request) context.Context {
+		return context.WithValue(ctx, "ok", true)
+	})
+	mux.MethodNotAllowed(func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+		ok, _ := ctx.Value("ok").(bool)
+		if !ok {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusTeapot)
+	})
+	mux.Post("/mux/method_not_allowed", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+		panic("test panic")
+	})
+
 	stdMux := http.NewServeMux()
 	stdMux.Handle("/mux/", mux)
 
@@ -79,6 +95,18 @@ func TestKamiMux(t *testing.T) {
 	// test 404
 	resp = httptest.NewRecorder()
 	req, err = http.NewRequest("GET", "/mux/missing/hello", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	stdMux.ServeHTTP(resp, req)
+	if resp.Code != http.StatusTeapot {
+		t.Error("should return HTTP Teapot", resp.Code, "≠", http.StatusTeapot)
+	}
+
+	// test 405
+	resp = httptest.NewRecorder()
+	req, err = http.NewRequest("GET", "/mux/method_not_allowed", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

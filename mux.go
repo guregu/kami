@@ -96,6 +96,18 @@ func (m *Mux) NotFound(handler HandlerType) {
 	})
 }
 
+// MethodNotAllowed registers special handler for invalid method requests (405).
+func (m *Mux) MethodNotAllowed(handler HandlerType) {
+	if handler == nil {
+		m.routes.MethodNotAllowed = nil
+	} else {
+		h := m.bless(wrap(handler))
+		m.routes.MethodNotAllowed = http.HandlerFunc(func (w http.ResponseWriter, r *http.Request) {
+			h(w, r, nil)
+		})
+	}
+}
+
 func (m *Mux) bless(k ContextHandler) httprouter.Handle {
 	return bless(k, &m.Context, m.middlewares, &m.PanicHandler, &m.LogHandler)
 }
