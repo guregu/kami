@@ -108,6 +108,11 @@ func (m *Mux) MethodNotAllowed(handler HandlerType) {
 	}
 }
 
+// Toggle any invalid method request handling in httprouter
+func (m *Mux) HandleMethodNotAllowed(value bool) {
+	m.routes.HandleMethodNotAllowed = value
+}
+
 func (m *Mux) bless(k ContextHandler) httprouter.Handle {
 	return bless(k, &m.Context, m.middlewares, &m.PanicHandler, &m.LogHandler)
 }

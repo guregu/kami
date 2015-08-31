@@ -100,6 +100,11 @@ func MethodNotAllowed(handler HandlerType) {
 	}
 }
 
+// Toggle any invalid method request handling in httprouter
+func HandleMethodNotAllowed(value bool) {
+	routes.HandleMethodNotAllowed = value
+}
+
 func defaultBless(k ContextHandler) httprouter.Handle {
 	return bless(k, &Context, defaultMW, &PanicHandler, &LogHandler)
 }

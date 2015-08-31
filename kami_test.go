@@ -154,6 +154,24 @@ func TestMethodNotAllowed(t *testing.T) {
 	expectResponseCode(t, "GET", "/test", http.StatusTeapot)
 }
 
+func TestHandleMethodNotAllowed(t *testing.T) {
+	kami.Reset()
+	kami.Post("/test", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+		panic("test panic")
+	})
+
+	// Handling enabled by default
+	expectResponseCode(t, "GET", "/test", http.StatusMethodNotAllowed)
+
+	// Not found deals with it when handling disabled
+	kami.HandleMethodNotAllowed(false)
+	expectResponseCode(t, "GET", "/test", http.StatusNotFound)
+
+	// And MethodNotAllowed status when handling enabled
+	kami.HandleMethodNotAllowed(true)
+	expectResponseCode(t, "GET", "/test", http.StatusMethodNotAllowed)
+}
+
 func TestMethodNotAllowedDefault(t *testing.T) {
 	kami.Reset()
 	kami.Post("/test", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
