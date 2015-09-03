@@ -26,11 +26,14 @@ type Mux struct {
 // New creates a new independent kami router and middleware stack.
 // It is totally separate from the global kami.Context and middleware stack.
 func New() *Mux {
-	return &Mux{
+	m := &Mux{
 		Context:     context.Background(),
 		routes:      httprouter.New(),
 		middlewares: newMiddlewares(),
 	}
+	m.NotFound(nil)
+	m.MethodNotAllowed(nil)
+	return m
 }
 
 // ServeHTTP handles an HTTP request, running middleware and forwarding the request to the appropriate handler.
@@ -100,13 +103,18 @@ func (m *Mux) NotFound(handler HandlerType) {
 // to invalid method requests (405).
 func (m *Mux) MethodNotAllowed(handler HandlerType) {
 	if handler == nil {
-		m.routes.MethodNotAllowed = nil
-	} else {
-		h := m.bless(wrap(handler))
-		m.routes.MethodNotAllowed = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			h(w, r, nil)
+		handler = HandlerFunc(func(_ context.Context, w http.ResponseWriter, r *http.Request) {
+			http.Error(w,
+				http.StatusText(http.StatusMethodNotAllowed),
+				http.StatusMethodNotAllowed,
+			)
 		})
 	}
+
+	h := m.bless(wrap(handler))
+	m.routes.MethodNotAllowed = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h(w, r, nil)
+	})
 }
 
 // EnableMethodNotAllowed enables or disables automatic Method Not Allowed handling.

@@ -92,13 +92,18 @@ func NotFound(handler HandlerType) {
 // to invalid method requests (405).
 func MethodNotAllowed(handler HandlerType) {
 	if handler == nil {
-		routes.MethodNotAllowed = nil
-	} else {
-		h := defaultBless(wrap(handler))
-		routes.MethodNotAllowed = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			h(w, r, nil)
+		handler = HandlerFunc(func(_ context.Context, w http.ResponseWriter, r *http.Request) {
+			http.Error(w,
+				http.StatusText(http.StatusMethodNotAllowed),
+				http.StatusMethodNotAllowed,
+			)
 		})
 	}
+
+	h := defaultBless(wrap(handler))
+	routes.MethodNotAllowed = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h(w, r, nil)
+	})
 }
 
 // EnableMethodNotAllowed enables or disables automatic Method Not Allowed handling.
