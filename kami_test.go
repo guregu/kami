@@ -133,6 +133,54 @@ func TestNotFoundDefault(t *testing.T) {
 	expectResponseCode(t, "GET", "/missing/hello", http.StatusNotFound)
 }
 
+func TestMethodNotAllowed(t *testing.T) {
+	kami.Reset()
+	kami.Use("/test", func(ctx context.Context, w http.ResponseWriter, r *http.Request) context.Context {
+		return context.WithValue(ctx, "ok", true)
+	})
+	kami.Post("/test", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+		panic("test panic")
+	})
+
+	kami.MethodNotAllowed(func (ctx context.Context, w http.ResponseWriter, r *http.Request) {
+		ok, _ := ctx.Value("ok").(bool)
+		if !ok {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusTeapot)
+	})
+
+	expectResponseCode(t, "GET", "/test", http.StatusTeapot)
+}
+
+func TestHandleMethodNotAllowed(t *testing.T) {
+	kami.Reset()
+	kami.Post("/test", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+		panic("test panic")
+	})
+
+	// Handling enabled by default
+	expectResponseCode(t, "GET", "/test", http.StatusMethodNotAllowed)
+
+	// Not found deals with it when handling disabled
+	kami.HandleMethodNotAllowed(false)
+	expectResponseCode(t, "GET", "/test", http.StatusNotFound)
+
+	// And MethodNotAllowed status when handling enabled
+	kami.HandleMethodNotAllowed(true)
+	expectResponseCode(t, "GET", "/test", http.StatusMethodNotAllowed)
+}
+
+func TestMethodNotAllowedDefault(t *testing.T) {
+	kami.Reset()
+	kami.Post("/test", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+		panic("test panic")
+	})
+
+	expectResponseCode(t, "GET", "/test", http.StatusMethodNotAllowed)
+}
+
 func noop(ctx context.Context, w http.ResponseWriter, r *http.Request) {}
 
 func expectResponseCode(t *testing.T, method, path string, expected int) {

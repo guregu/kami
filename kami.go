@@ -88,6 +88,23 @@ func NotFound(handler HandlerType) {
 	})
 }
 
+// MethodNotAllowed registers special handler for invalid method requests (405).
+func MethodNotAllowed(handler HandlerType) {
+	if handler == nil {
+		routes.MethodNotAllowed = nil
+	} else {
+		h := defaultBless(wrap(handler))
+		routes.MethodNotAllowed = http.HandlerFunc(func (w http.ResponseWriter, r *http.Request) {
+			h(w, r, nil)
+		})
+	}
+}
+
+// Toggle any invalid method request handling in httprouter
+func HandleMethodNotAllowed(value bool) {
+	routes.HandleMethodNotAllowed = value
+}
+
 func defaultBless(k ContextHandler) httprouter.Handle {
 	return bless(k, &Context, defaultMW, &PanicHandler, &LogHandler)
 }
@@ -148,4 +165,5 @@ func Reset() {
 	defaultMW = newMiddlewares()
 	routes = httprouter.New()
 	NotFound(nil)
+	MethodNotAllowed(nil)
 }
