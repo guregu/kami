@@ -116,7 +116,7 @@ func TestKamiMux(t *testing.T) {
 		t.Error("should return HTTP Teapot", resp.Code, "≠", http.StatusTeapot)
 	}
 
-	// test HandleMethodNotAllowed method
+	// test EnableMethodNotAllowed method
 	resp = httptest.NewRecorder()
 	req, err = http.NewRequest("GET", "/mux/method_not_allowed", nil)
 	if err != nil {
@@ -126,9 +126,9 @@ func TestKamiMux(t *testing.T) {
 	// Reset NotFound handler to receive default 404 instead of custom handler 418(Teapot)
 	mux.NotFound(nil)
 
-	mux.HandleMethodNotAllowed(false)
+	mux.EnableMethodNotAllowed(false)
 	stdMux.ServeHTTP(resp, req)
 	if resp.Code != http.StatusNotFound {
 		t.Error("should return HTTP NotFound", resp.Code, "≠", http.StatusNotFound)
-	}	
+	}
 }

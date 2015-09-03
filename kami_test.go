@@ -142,7 +142,7 @@ func TestMethodNotAllowed(t *testing.T) {
 		panic("test panic")
 	})
 
-	kami.MethodNotAllowed(func (ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	kami.MethodNotAllowed(func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		ok, _ := ctx.Value("ok").(bool)
 		if !ok {
 			w.WriteHeader(http.StatusInternalServerError)
@@ -154,7 +154,7 @@ func TestMethodNotAllowed(t *testing.T) {
 	expectResponseCode(t, "GET", "/test", http.StatusTeapot)
 }
 
-func TestHandleMethodNotAllowed(t *testing.T) {
+func TestEnableMethodNotAllowed(t *testing.T) {
 	kami.Reset()
 	kami.Post("/test", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		panic("test panic")
@@ -164,11 +164,11 @@ func TestHandleMethodNotAllowed(t *testing.T) {
 	expectResponseCode(t, "GET", "/test", http.StatusMethodNotAllowed)
 
 	// Not found deals with it when handling disabled
-	kami.HandleMethodNotAllowed(false)
+	kami.EnableMethodNotAllowed(false)
 	expectResponseCode(t, "GET", "/test", http.StatusNotFound)
 
 	// And MethodNotAllowed status when handling enabled
-	kami.HandleMethodNotAllowed(true)
+	kami.EnableMethodNotAllowed(true)
 	expectResponseCode(t, "GET", "/test", http.StatusMethodNotAllowed)
 }
 
