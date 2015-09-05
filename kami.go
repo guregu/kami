@@ -22,8 +22,9 @@ var (
 var routes = httprouter.New()
 
 func init() {
-	// set up the default 404 handler
+	// set up the default 404/405 handlers
 	NotFound(nil)
+	MethodNotAllowed(nil)
 }
 
 // Handler returns an http.Handler serving registered routes.
