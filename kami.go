@@ -130,7 +130,7 @@ func bless(k ContextHandler, base *context.Context, m *middlewares, panicHandler
 
 		writer := w
 		var proxy mutil.WriterProxy
-		if *logHandler != nil {
+		if *logHandler != nil || m.after != nil || m.afterWildcards != nil {
 			proxy = mutil.WrapWriter(w)
 			writer = proxy
 		}
@@ -153,6 +153,9 @@ func bless(k ContextHandler, base *context.Context, m *middlewares, panicHandler
 		ctx, ok := m.run(ctx, writer, r)
 		if ok {
 			k.ServeHTTPContext(ctx, writer, r)
+		}
+		if proxy != nil {
+			ctx = m.after(ctx, proxy, r)
 		}
 
 		if *logHandler != nil {

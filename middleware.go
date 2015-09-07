@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"unicode/utf8"
 
 	"golang.org/x/net/context"
 
 	"github.com/go-kami/tree"
+	"github.com/zenazn/goji/web/mutil"
 )
 
 // Middleware is a function that takes the current request context and returns a new request context.
@@ -25,9 +27,26 @@ type Middleware func(context.Context, http.ResponseWriter, *http.Request) contex
 // 	- func(http.ContextHandler) http.ContextHandler [* see Use docs]
 type MiddlewareType interface{}
 
+// Afterware is a function that will run after middleware and the request.
+// Afterware takes the request context and returns a new context, but unlike middleware,
+// returning nil won't halt execution of other afterware.
+type Afterware func(context.Context, mutil.WriterProxy, *http.Request) context.Context
+
+// Afterware represents types that kami can convert to Afterware.
+// The following concrete types are accepted:
+//  - Afterware
+//  - func(context.Context, mutil.WriterProxy, *http.Request) context.Context
+// 	- func(context.Context, http.ResponseWriter, *http.Request) context.Context
+//  - func(context.Context, *http.Request) context.Context
+//  - func(context.Context) context.Context
+// 	- Middleware
+type AfterwareType interface{}
+
 type middlewares struct {
-	hierarchy map[string][]Middleware
-	wildcards *tree.Node
+	hierarchy      map[string][]Middleware
+	afterware      map[string][]Afterware
+	wildcards      *tree.Node
+	afterWildcards *tree.Node
 }
 
 func newMiddlewares() *middlewares {
@@ -50,11 +69,28 @@ func (m *middlewares) Use(path string, mw MiddlewareType) {
 	}
 }
 
+// After registers middleware to run for the given path after normal middleware added with Use has run.
+// See the global After function's documents for information on how middleware works.
+func (m *middlewares) After(path string, afterware AfterwareType) {
+	aw := convertAW(afterware)
+	if containsWildcard(path) {
+		if m.afterWildcards == nil {
+			m.afterWildcards = new(tree.Node)
+		}
+		m.afterWildcards.AddRoute(path, aw)
+	} else {
+		if m.afterware == nil {
+			m.afterware = make(map[string][]Afterware)
+		}
+		m.afterware[path] = append([]Afterware{aw}, m.afterware[path]...)
+	}
+}
+
 var defaultMW = newMiddlewares()
 
 // Use registers middleware to run for the given path.
-// Middleware with be executed hierarchically, starting with the least specific path.
-// Middleware will be executed in order of registration.
+// Middleware will be executed hierarchically, starting with the least specific path.
+// Middleware under the same path will be executed in order of registration.
 // You may use wildcards in the path. Wildcard middleware will be run last,
 // after all hierarchical middleware has run.
 //
@@ -67,6 +103,15 @@ var defaultMW = newMiddlewares()
 // Standard middleware that does not call the next handler to stop the request is supported.
 func Use(path string, mw MiddlewareType) {
 	defaultMW.Use(path, mw)
+}
+
+// After registers afterware to run after middleware and the request handler has run.
+// Afterware is like middleware, but everything is in reverse.
+// Afterware will be executed hierarchically, starting with wildcards and then
+// the most specific path, ending with /.
+// Afterware under the same path will be executed in the opposite order of registration.
+func After(path string, aw AfterwareType) {
+	defaultMW.After(path, aw)
 }
 
 // run runs the middleware chain for a particular request.
@@ -100,7 +145,44 @@ func (m middlewares) run(ctx context.Context, w http.ResponseWriter, r *http.Req
 			ctx = result
 		}
 	}
+
 	return ctx, true
+}
+
+// after runs the afterware chain for a particular request.
+// after can't stop early
+func (m middlewares) after(ctx context.Context, w mutil.WriterProxy, r *http.Request) context.Context {
+	if m.afterWildcards != nil {
+		// wildcard afterware
+		if wild, params, _ := m.afterWildcards.GetValue(r.URL.Path); wild != nil {
+			if aw, ok := wild.(Afterware); ok {
+				ctx = mergeParams(ctx, params)
+				result := aw(ctx, w, r)
+				if result != nil {
+					ctx = result
+				}
+			}
+		}
+	}
+
+	if m.afterware != nil {
+		// hierarchical afterware, like middleware in reverse
+		path := r.URL.Path
+		for len(path) > 0 {
+			chr, size := utf8.DecodeLastRuneInString(path)
+			if chr == '/' || len(path) == len(r.URL.Path) {
+				for _, aw := range m.afterware[path] {
+					result := aw(ctx, w, r)
+					if result != nil {
+						ctx = result
+					}
+				}
+			}
+			path = path[:len(path)-size]
+		}
+	}
+
+	return ctx
 }
 
 // convert turns standard http middleware into kami Middleware if needed.
@@ -132,10 +214,37 @@ func convert(mw MiddlewareType) Middleware {
 	panic(fmt.Errorf("unsupported MiddlewareType: %T", mw))
 }
 
+// convertAW
+func convertAW(aw AfterwareType) Afterware {
+	switch x := aw.(type) {
+	case Afterware:
+		return x
+	case func(context.Context, mutil.WriterProxy, *http.Request) context.Context:
+		return Afterware(x)
+	case func(context.Context, *http.Request) context.Context:
+		return func(ctx context.Context, _ mutil.WriterProxy, r *http.Request) context.Context {
+			return x(ctx, r)
+		}
+	case func(context.Context) context.Context:
+		return func(ctx context.Context, _ mutil.WriterProxy, _ *http.Request) context.Context {
+			return x(ctx)
+		}
+	case Middleware:
+		return func(ctx context.Context, w mutil.WriterProxy, r *http.Request) context.Context {
+			return x(ctx, w, r)
+		}
+	case func(context.Context, http.ResponseWriter, *http.Request) context.Context:
+		return func(ctx context.Context, w mutil.WriterProxy, r *http.Request) context.Context {
+			return x(ctx, w, r)
+		}
+	}
+	panic(fmt.Errorf("unsupported AfterwareType: %T", aw))
+}
+
 // dummyHandler is used to keep track of whether the next middleware was called or not.
 type dummyHandler bool
 
-func (dh *dummyHandler) ServeHTTP(_ http.ResponseWriter, _ *http.Request) {
+func (dh *dummyHandler) ServeHTTP(http.ResponseWriter, *http.Request) {
 	*dh = true
 }
 
