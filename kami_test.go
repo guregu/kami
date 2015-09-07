@@ -181,6 +181,25 @@ func TestMethodNotAllowedDefault(t *testing.T) {
 	expectResponseCode(t, "GET", "/test", http.StatusMethodNotAllowed)
 }
 
+func TestCloseHandler(t *testing.T) {
+	called := false
+	closeHandler := func(ctx context.Context, r *http.Request) {
+		called = true
+	}
+
+	kami.Reset()
+
+	kami.CloseHandler = closeHandler
+	kami.Get("/test", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+		t.Log("TestCloseHandler")
+	})
+
+	expectResponseCode(t, "GET", "/test", http.StatusOK)
+	if called != true {
+		t.Fatal("expected closeHandler to be called")
+	}
+}
+
 func noop(ctx context.Context, w http.ResponseWriter, r *http.Request) {}
 
 func expectResponseCode(t *testing.T, method, path string, expected int) {

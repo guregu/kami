@@ -17,6 +17,8 @@ var (
 	PanicHandler HandlerType
 	// LogHandler will, if set, wrap every request and be called at the very end.
 	LogHandler func(context.Context, mutil.WriterProxy, *http.Request)
+	// CloseHandler will, if set, called before the log handler and can be used for cleanup actions
+	CloseHandler func(context.Context, *http.Request)
 )
 
 var routes = httprouter.New()
@@ -114,19 +116,20 @@ func EnableMethodNotAllowed(enabled bool) {
 }
 
 func defaultBless(k ContextHandler) httprouter.Handle {
-	return bless(k, &Context, defaultMW, &PanicHandler, &LogHandler)
+	return bless(k, &Context, defaultMW, &PanicHandler, &LogHandler, &CloseHandler)
 }
 
 // bless is the meat of kami.
 // It wraps a ContextHandler into an httprouter compatible request,
 // in order to run all the middleware and other special handlers.
-func bless(k ContextHandler, base *context.Context, m *middlewares, panicHandler *HandlerType, logHandler *func(context.Context, mutil.WriterProxy, *http.Request)) httprouter.Handle {
+func bless(k ContextHandler, base *context.Context, m *middlewares, panicHandler *HandlerType, logHandler *func(context.Context, mutil.WriterProxy, *http.Request), closeHandler *func(context.Context, *http.Request)) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 		ctx := defaultContext(*base, r)
 		if len(params) > 0 {
 			ctx = newContextWithParams(ctx, params)
 		}
-		ranLogHandler := false // track this in case the log handler blows up
+		ranLogHandler := false   // track this in case the log handler blows up
+		ranCloseHandler := false // track this in case the log handler blows up
 
 		writer := w
 		var proxy mutil.WriterProxy
@@ -141,11 +144,16 @@ func bless(k ContextHandler, base *context.Context, m *middlewares, panicHandler
 					ctx = newContextWithException(ctx, err)
 					wrap(*panicHandler).ServeHTTPContext(ctx, writer, r)
 
+					if *closeHandler != nil && !ranCloseHandler {
+						(*closeHandler)(ctx, r)
+					}
+
 					if *logHandler != nil && !ranLogHandler {
 						(*logHandler)(ctx, proxy, r)
 						// should only happen if header hasn't been written
 						proxy.WriteHeader(http.StatusInternalServerError)
 					}
+
 				}
 			}()
 		}
@@ -153,6 +161,11 @@ func bless(k ContextHandler, base *context.Context, m *middlewares, panicHandler
 		ctx, ok := m.run(ctx, writer, r)
 		if ok {
 			k.ServeHTTPContext(ctx, writer, r)
+		}
+
+		if *closeHandler != nil {
+			ranCloseHandler = true
+			(*closeHandler)(ctx, r)
 		}
 
 		if *logHandler != nil {
@@ -170,6 +183,7 @@ func Reset() {
 	Context = context.Background()
 	PanicHandler = nil
 	LogHandler = nil
+	CloseHandler = nil
 	defaultMW = newMiddlewares()
 	routes = httprouter.New()
 	NotFound(nil)

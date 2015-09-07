@@ -18,6 +18,8 @@ type Mux struct {
 	PanicHandler HandlerType
 	// LogHandler will, if set, wrap every request and be called at the very end.
 	LogHandler func(context.Context, mutil.WriterProxy, *http.Request)
+	// CloseHandler will, if set, called before the log handler and can be used for cleanup actions
+	CloseHandler func(context.Context, *http.Request)
 
 	routes *httprouter.Router
 	*middlewares
@@ -124,5 +126,5 @@ func (m *Mux) EnableMethodNotAllowed(enabled bool) {
 }
 
 func (m *Mux) bless(k ContextHandler) httprouter.Handle {
-	return bless(k, &m.Context, m.middlewares, &m.PanicHandler, &m.LogHandler)
+	return bless(k, &m.Context, m.middlewares, &m.PanicHandler, &m.LogHandler, &m.CloseHandler)
 }
