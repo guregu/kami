@@ -1,8 +1,6 @@
 package kami_test
 
 import (
-	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -15,46 +13,90 @@ import (
 
 func TestKami(t *testing.T) {
 	kami.Reset()
+
+	expect := func(ctx context.Context, i int) context.Context {
+		if prev := ctx.Value(i - 1).(int); prev != i-1 {
+			t.Error("missing", i)
+		}
+		return context.WithValue(ctx, i, i)
+	}
+
 	kami.Use("/", func(ctx context.Context, w http.ResponseWriter, r *http.Request) context.Context {
-		return context.WithValue(ctx, "test1", "1")
+		ctx = context.WithValue(ctx, 1, 1)
+		ctx = context.WithValue(ctx, "handler", new(bool))
+		ctx = context.WithValue(ctx, "done", new(bool))
+		ctx = context.WithValue(ctx, "recovered", new(bool))
+		return ctx
 	})
-	kami.Use("/v2/", func(ctx context.Context, w http.ResponseWriter, r *http.Request) context.Context {
-		return context.WithValue(ctx, "test2", "2")
+	kami.Use("/a/", func(ctx context.Context, w http.ResponseWriter, r *http.Request) context.Context {
+		ctx = expect(ctx, 2)
+		return ctx
 	})
-	kami.Get("/v2/papers/:page", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-		page := kami.Param(ctx, "page")
-		if page == "" {
-			panic("blank page")
+	kami.Use("/a/", func(ctx context.Context, w http.ResponseWriter, r *http.Request) context.Context {
+		ctx = expect(ctx, 3)
+		return ctx
+	})
+	kami.Use("/a/b", func(ctx context.Context, w http.ResponseWriter, r *http.Request) context.Context {
+		ctx = expect(ctx, 4)
+		return ctx
+	})
+	kami.Use("/a/*files", func(ctx context.Context, w http.ResponseWriter, r *http.Request) context.Context {
+		ctx = expect(ctx, 5)
+		return ctx
+	})
+	kami.Get("/a/b", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+		if prev := ctx.Value(5).(int); prev != 5 {
+			t.Error("handler: missing", 5)
 		}
-		io.WriteString(w, page)
+		*(ctx.Value("handler").(*bool)) = true
 
-		test1 := ctx.Value("test1").(string)
-		test2 := ctx.Value("test2").(string)
-
-		if test1 != "1" || test2 != "2" {
-			t.Error("unexpected ctx value:", test1, test2)
-		}
+		w.WriteHeader(http.StatusTeapot)
 	})
+	kami.After("/a/*files", func(ctx context.Context, w http.ResponseWriter, r *http.Request) context.Context {
+		ctx = expect(ctx, 6)
+		if !*(ctx.Value("handler").(*bool)) {
+			t.Error("ran before handler")
+		}
+		return ctx
+	})
+	kami.After("/a/b", kami.Afterware(func(ctx context.Context, w mutil.WriterProxy, r *http.Request) context.Context {
+		ctx = expect(ctx, 7)
+		return ctx
+	}))
+	kami.After("/a/", func(ctx context.Context) context.Context {
+		ctx = expect(ctx, 9)
+		return ctx
+	})
+	kami.After("/a/", func(ctx context.Context) context.Context {
+		ctx = expect(ctx, 8)
+		return ctx
+	})
+	kami.After("/", func(ctx context.Context, w mutil.WriterProxy, r *http.Request) context.Context {
+		if status := w.Status(); status != http.StatusTeapot {
+			t.Error("wrong status", status)
+		}
 
-	resp := httptest.NewRecorder()
-	req, err := http.NewRequest("GET", "/v2/papers/3", nil)
-	if err != nil {
-		t.Fatal(err)
+		ctx = expect(ctx, 9)
+		*(ctx.Value("done").(*bool)) = true
+		panic("🍣")
+		return nil
+	})
+	kami.PanicHandler = func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+		if got := kami.Exception(ctx); got.(string) != "🍣" {
+			t.Error("panic handler: expected sushi, got", got)
+		}
+		if !*(ctx.Value("done").(*bool)) {
+			t.Error("didn't finish")
+		}
+		*(ctx.Value("recovered").(*bool)) = true
+	}
+	kami.LogHandler = func(ctx context.Context, w mutil.WriterProxy, r *http.Request) {
+		if !*(ctx.Value("recovered").(*bool)) {
+			t.Error("didn't recover")
+		}
 	}
 
-	kami.Handler().ServeHTTP(resp, req)
-	if resp.Code != http.StatusOK {
-		t.Error("should return HTTP OK", resp.Code, "≠", http.StatusOK)
-	}
-
-	data, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		panic(err)
-	}
-
-	if string(data) != "3" {
-		t.Error("expected page 3, got", string(data))
-	}
+	expectResponseCode(t, "GET", "/a/b", http.StatusTeapot)
 }
 
 func TestLoggerAndPanic(t *testing.T) {
@@ -103,11 +145,10 @@ func TestPanickingLogger(t *testing.T) {
 			t.Error("unexpected exception:", err)
 		}
 		w.WriteHeader(http.StatusServiceUnavailable)
-		w.Write([]byte("error 503"))
 	})
-	kami.Post("/test", noop)
+	kami.Options("/test", noop)
 
-	expectResponseCode(t, "POST", "/test", http.StatusServiceUnavailable)
+	expectResponseCode(t, "OPTIONS", "/test", http.StatusServiceUnavailable)
 }
 
 func TestNotFound(t *testing.T) {
@@ -182,6 +223,10 @@ func TestMethodNotAllowedDefault(t *testing.T) {
 }
 
 func noop(ctx context.Context, w http.ResponseWriter, r *http.Request) {}
+
+func noopMW(ctx context.Context, w http.ResponseWriter, r *http.Request) context.Context {
+	return ctx
+}
 
 func expectResponseCode(t *testing.T, method, path string, expected int) {
 	resp := httptest.NewRecorder()
