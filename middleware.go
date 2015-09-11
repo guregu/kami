@@ -42,36 +42,36 @@ type Afterware func(context.Context, mutil.WriterProxy, *http.Request) context.C
 // 	- Middleware
 type AfterwareType interface{}
 
-type middlewares struct {
-	hierarchy      map[string][]Middleware
+type wares struct {
+	middleware     map[string][]Middleware
 	afterware      map[string][]Afterware
 	wildcards      *tree.Node
 	afterWildcards *tree.Node
 }
 
-func newMiddlewares() *middlewares {
-	return &middlewares{
-		hierarchy: make(map[string][]Middleware),
-		wildcards: new(tree.Node),
+func newWares() *wares {
+	return &wares{
+		middleware: make(map[string][]Middleware),
+		wildcards:  new(tree.Node),
 	}
 }
 
 // Use registers middleware to run for the given path.
 // See the global Use function's documents for information on how middleware works.
-func (m *middlewares) Use(path string, mw MiddlewareType) {
+func (m *wares) Use(path string, mw MiddlewareType) {
 	if containsWildcard(path) {
 		m.wildcards.AddRoute(path, convert(mw))
 	} else {
 		fn := convert(mw)
-		chain := m.hierarchy[path]
+		chain := m.middleware[path]
 		chain = append(chain, fn)
-		m.hierarchy[path] = chain
+		m.middleware[path] = chain
 	}
 }
 
 // After registers middleware to run for the given path after normal middleware added with Use has run.
 // See the global After function's documents for information on how middleware works.
-func (m *middlewares) After(path string, afterware AfterwareType) {
+func (m *wares) After(path string, afterware AfterwareType) {
 	aw := convertAW(afterware)
 	if containsWildcard(path) {
 		if m.afterWildcards == nil {
@@ -86,7 +86,7 @@ func (m *middlewares) After(path string, afterware AfterwareType) {
 	}
 }
 
-var defaultMW = newMiddlewares()
+var defaultMW = newWares()
 
 // Use registers middleware to run for the given path.
 // Middleware will be executed hierarchically, starting with the least specific path.
@@ -116,15 +116,15 @@ func After(path string, aw AfterwareType) {
 
 // run runs the middleware chain for a particular request.
 // run returns false if it should stop early.
-func (m middlewares) run(ctx context.Context, w http.ResponseWriter, r *http.Request) (context.Context, bool) {
+func (m *wares) run(ctx context.Context, w http.ResponseWriter, r *http.Request) (context.Context, bool) {
 	// hierarchical middlewares
 	for i, c := range r.URL.Path {
 		if c == '/' || i == len(r.URL.Path)-1 {
-			wares, ok := m.hierarchy[r.URL.Path[:i+1]]
+			mws, ok := m.middleware[r.URL.Path[:i+1]]
 			if !ok {
 				continue
 			}
-			for _, mw := range wares {
+			for _, mw := range mws {
 				// return nil context to stop
 				result := mw(ctx, w, r)
 				if result == nil {
@@ -151,7 +151,7 @@ func (m middlewares) run(ctx context.Context, w http.ResponseWriter, r *http.Req
 
 // after runs the afterware chain for a particular request.
 // after can't stop early
-func (m middlewares) after(ctx context.Context, w mutil.WriterProxy, r *http.Request) context.Context {
+func (m *wares) after(ctx context.Context, w mutil.WriterProxy, r *http.Request) context.Context {
 	if m.afterWildcards != nil {
 		// wildcard afterware
 		if wild, params, _ := m.afterWildcards.GetValue(r.URL.Path); wild != nil {

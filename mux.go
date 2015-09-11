@@ -20,16 +20,16 @@ type Mux struct {
 	LogHandler func(context.Context, mutil.WriterProxy, *http.Request)
 
 	routes *httprouter.Router
-	*middlewares
+	*wares
 }
 
 // New creates a new independent kami router and middleware stack.
 // It is totally separate from the global kami.Context and middleware stack.
 func New() *Mux {
 	m := &Mux{
-		Context:     context.Background(),
-		routes:      httprouter.New(),
-		middlewares: newMiddlewares(),
+		Context: context.Background(),
+		routes:  httprouter.New(),
+		wares:   newWares(),
 	}
 	m.NotFound(nil)
 	m.MethodNotAllowed(nil)
@@ -124,5 +124,5 @@ func (m *Mux) EnableMethodNotAllowed(enabled bool) {
 }
 
 func (m *Mux) bless(k ContextHandler) httprouter.Handle {
-	return bless(k, &m.Context, m.middlewares, &m.PanicHandler, &m.LogHandler)
+	return bless(k, &m.Context, m.wares, &m.PanicHandler, &m.LogHandler)
 }
