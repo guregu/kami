@@ -120,7 +120,7 @@ func defaultBless(k ContextHandler) httprouter.Handle {
 // bless is the meat of kami.
 // It wraps a ContextHandler into an httprouter compatible request,
 // in order to run all the middleware and other special handlers.
-func bless(k ContextHandler, base *context.Context, m *wares, panicHandler *HandlerType, logHandler *func(context.Context, mutil.WriterProxy, *http.Request)) httprouter.Handle {
+func bless(h ContextHandler, base *context.Context, mw *wares, panicHandler *HandlerType, logHandler *func(context.Context, mutil.WriterProxy, *http.Request)) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 		ctx := defaultContext(*base, r)
 		if len(params) > 0 {
@@ -128,18 +128,17 @@ func bless(k ContextHandler, base *context.Context, m *wares, panicHandler *Hand
 		}
 		ranLogHandler := false // track this in case the log handler blows up
 
-		writer := w
 		var proxy mutil.WriterProxy
-		if *logHandler != nil || m.after != nil || m.afterWildcards != nil {
+		if *logHandler != nil || mw.needsWrapper() {
 			proxy = mutil.WrapWriter(w)
-			writer = proxy
+			w = proxy
 		}
 
 		if *panicHandler != nil {
 			defer func() {
 				if err := recover(); err != nil {
 					ctx = newContextWithException(ctx, err)
-					wrap(*panicHandler).ServeHTTPContext(ctx, writer, r)
+					wrap(*panicHandler).ServeHTTPContext(ctx, w, r)
 
 					if *logHandler != nil && !ranLogHandler {
 						(*logHandler)(ctx, proxy, r)
@@ -150,12 +149,12 @@ func bless(k ContextHandler, base *context.Context, m *wares, panicHandler *Hand
 			}()
 		}
 
-		ctx, ok := m.run(ctx, writer, r)
+		ctx, ok := mw.run(ctx, w, r)
 		if ok {
-			k.ServeHTTPContext(ctx, writer, r)
+			h.ServeHTTPContext(ctx, w, r)
 		}
 		if proxy != nil {
-			ctx = m.after(ctx, proxy, r)
+			ctx = mw.after(ctx, proxy, r)
 		}
 
 		if *logHandler != nil {

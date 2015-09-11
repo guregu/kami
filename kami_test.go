@@ -224,6 +224,10 @@ func TestMethodNotAllowedDefault(t *testing.T) {
 
 func noop(ctx context.Context, w http.ResponseWriter, r *http.Request) {}
 
+func noopMW(ctx context.Context, w http.ResponseWriter, r *http.Request) context.Context {
+	return ctx
+}
+
 func expectResponseCode(t *testing.T, method, path string, expected int) {
 	resp := httptest.NewRecorder()
 	req, err := http.NewRequest(method, path, nil)

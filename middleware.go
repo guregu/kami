@@ -50,18 +50,21 @@ type wares struct {
 }
 
 func newWares() *wares {
-	return &wares{
-		middleware: make(map[string][]Middleware),
-		wildcards:  new(tree.Node),
-	}
+	return new(wares)
 }
 
 // Use registers middleware to run for the given path.
 // See the global Use function's documents for information on how middleware works.
 func (m *wares) Use(path string, mw MiddlewareType) {
 	if containsWildcard(path) {
+		if m.wildcards == nil {
+			m.wildcards = new(tree.Node)
+		}
 		m.wildcards.AddRoute(path, convert(mw))
 	} else {
+		if m.middleware == nil {
+			m.middleware = make(map[string][]Middleware)
+		}
 		fn := convert(mw)
 		chain := m.middleware[path]
 		chain = append(chain, fn)
@@ -86,7 +89,7 @@ func (m *wares) After(path string, afterware AfterwareType) {
 	}
 }
 
-var defaultMW = newWares()
+var defaultMW = newWares() // for the global router
 
 // Use registers middleware to run for the given path.
 // Middleware will be executed hierarchically, starting with the least specific path.
@@ -117,32 +120,37 @@ func After(path string, aw AfterwareType) {
 // run runs the middleware chain for a particular request.
 // run returns false if it should stop early.
 func (m *wares) run(ctx context.Context, w http.ResponseWriter, r *http.Request) (context.Context, bool) {
-	// hierarchical middlewares
-	for i, c := range r.URL.Path {
-		if c == '/' || i == len(r.URL.Path)-1 {
-			mws, ok := m.middleware[r.URL.Path[:i+1]]
-			if !ok {
-				continue
+	if m.middleware != nil {
+		// hierarchical middleware
+		for i, c := range r.URL.Path {
+			if c == '/' || i == len(r.URL.Path)-1 {
+				mws, ok := m.middleware[r.URL.Path[:i+1]]
+				if !ok {
+					continue
+				}
+				for _, mw := range mws {
+					// return nil context to stop
+					result := mw(ctx, w, r)
+					if result == nil {
+						return ctx, false
+					}
+					ctx = result
+				}
 			}
-			for _, mw := range mws {
-				// return nil context to stop
+		}
+	}
+
+	if m.wildcards != nil {
+		// wildcard middleware
+		if wild, params, _ := m.wildcards.GetValue(r.URL.Path); wild != nil {
+			if mw, ok := wild.(Middleware); ok {
+				ctx = mergeParams(ctx, params)
 				result := mw(ctx, w, r)
 				if result == nil {
 					return ctx, false
 				}
 				ctx = result
 			}
-		}
-	}
-	// wildcard middlewares
-	if wild, params, _ := m.wildcards.GetValue(r.URL.Path); wild != nil {
-		if mw, ok := wild.(Middleware); ok {
-			ctx = mergeParams(ctx, params)
-			result := mw(ctx, w, r)
-			if result == nil {
-				return ctx, false
-			}
-			ctx = result
 		}
 	}
 
@@ -183,6 +191,10 @@ func (m *wares) after(ctx context.Context, w mutil.WriterProxy, r *http.Request)
 	}
 
 	return ctx
+}
+
+func (m *wares) needsWrapper() bool {
+	return m.afterware != nil || m.afterWildcards != nil
 }
 
 // convert turns standard http middleware into kami Middleware if needed.

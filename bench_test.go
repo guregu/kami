@@ -10,59 +10,37 @@ import (
 	"github.com/guregu/kami"
 )
 
-func BenchmarkShortRoute(b *testing.B) {
+func routeBench(b *testing.B, route string) {
 	kami.Reset()
-	kami.Get("/hello", noop)
-	req, _ := http.NewRequest("GET", "/hello", nil)
+	kami.Use("/Z/", noopMW)
+	kami.After("/Z/", noopMW)
+	kami.Get(route, noop)
+	req, _ := http.NewRequest("GET", route, nil)
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		resp := httptest.NewRecorder()
 		kami.Handler().ServeHTTP(resp, req)
 	}
+}
+
+func BenchmarkShortRoute(b *testing.B) {
+	routeBench(b, "/hello")
 }
 
 func BenchmarkLongRoute(b *testing.B) {
-	kami.Reset()
-	kami.Get("/aaaaaaaaaaaa/", noop)
-	req, _ := http.NewRequest("GET", "/aaaaaaaaaaaa/", nil)
-	b.ResetTimer()
-	for n := 0; n < b.N; n++ {
-		resp := httptest.NewRecorder()
-		kami.Handler().ServeHTTP(resp, req)
-	}
+	routeBench(b, "/aaaaaaaaaaaa/")
 }
 
 func BenchmarkDeepRoute(b *testing.B) {
-	kami.Reset()
-	kami.Get("/a/b/c/d/e/f/g", noop)
-	req, _ := http.NewRequest("GET", "/a/b/c/d/e/f/g", nil)
-	b.ResetTimer()
-	for n := 0; n < b.N; n++ {
-		resp := httptest.NewRecorder()
-		kami.Handler().ServeHTTP(resp, req)
-	}
+	routeBench(b, "/a/b/c/d/e/f/g")
 }
 
 func BenchmarkDeepRouteUnicode(b *testing.B) {
-	kami.Reset()
-	kami.Get("/ä/蜂/海/🐶/神/🍺/🍻", noop)
-	req, _ := http.NewRequest("GET", "/ä/蜂/海/🐶/神/🍺/🍻", nil)
-	b.ResetTimer()
-	for n := 0; n < b.N; n++ {
-		resp := httptest.NewRecorder()
-		kami.Handler().ServeHTTP(resp, req)
-	}
+	routeBench(b, "/ä/蜂/海/🐶/神/🍺/🍻")
 }
 
 func BenchmarkSuperDeepRoute(b *testing.B) {
-	kami.Reset()
-	kami.Get("/a/b/c/d/e/f/g/h/i/l/k/l/m/n/o/p/q/r/hello world", noop)
-	req, _ := http.NewRequest("GET", "/a/b/c/d/e/f/g/h/i/l/k/l/m/n/o/p/q/r/hello world", nil)
-	b.ResetTimer()
-	for n := 0; n < b.N; n++ {
-		resp := httptest.NewRecorder()
-		kami.Handler().ServeHTTP(resp, req)
-	}
+	routeBench(b, "/a/b/c/d/e/f/g/h/i/l/k/l/m/n/o/p/q/r/hello world")
 }
 
 // Param benchmarks test accessing URL params
