@@ -10,10 +10,10 @@ You are free to mount `kami.Handler()` wherever you wish, but a helpful `kami.Se
 Here is a [presentation about the birth of kami](http://go-talks.appspot.com/github.com/guregu/slides/kami/kami.slide), explaining some of the design choices. 
 
 ### Example
+A contrived example using kami and x/net/context to localize greetings.
 
 [Skip :fast_forward:](#usage)
 
-A contrived example using kami and x/net/context to localize greetings.
 
 ```go
 // Our webserver
@@ -43,8 +43,6 @@ func main() {
 	kami.Use("/hello/", greeting.Guess) // use this middleware for paths under /hello/
 	kami.Get("/hello/:name", greet)     // add a GET handler with a parameter in the URL
 	kami.Serve()                        // gracefully serve with support for einhorn and systemd
-}
-
 }
 ```
 
