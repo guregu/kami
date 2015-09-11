@@ -18,6 +18,9 @@ func TestKami(t *testing.T) {
 		if prev := ctx.Value(i - 1).(int); prev != i-1 {
 			t.Error("missing", i)
 		}
+		if curr := ctx.Value(i); curr != nil {
+			t.Error("pre-existing", i)
+		}
 		return context.WithValue(ctx, i, i)
 	}
 
@@ -76,7 +79,7 @@ func TestKami(t *testing.T) {
 			t.Error("wrong status", status)
 		}
 
-		ctx = expect(ctx, 9)
+		ctx = expect(ctx, 10)
 		*(ctx.Value("done").(*bool)) = true
 		panic("🍣")
 		return nil
