@@ -122,11 +122,23 @@ func defaultBless(k ContextHandler) httprouter.Handle {
 // in order to run all the middleware and other special handlers.
 func bless(h ContextHandler, base *context.Context, mw *wares, panicHandler *HandlerType, logHandler *func(context.Context, mutil.WriterProxy, *http.Request)) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-		ctx := defaultContext(*base, r)
+		ctx, cancel := context.WithCancel(defaultContext(*base, r))
+		defer cancel()
 		if len(params) > 0 {
 			ctx = newContextWithParams(ctx, params)
 		}
 		ranLogHandler := false // track this in case the log handler blows up
+
+		// cancel our context if connection is closed
+		if closeNotifier, ok := w.(http.CloseNotifier); ok {
+			go func() {
+				select {
+				case <-ctx.Done():
+				case <-closeNotifier.CloseNotify():
+					cancel()
+				}
+			}()
+		}
 
 		var proxy mutil.WriterProxy
 		if *logHandler != nil || mw.needsWrapper() {
