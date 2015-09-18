@@ -189,6 +189,7 @@ func bless(h ContextHandler, base *context.Context, mw *wares, panicHandler *Han
 // It removes every handler and all middleware.
 func Reset() {
 	Context = context.Background()
+	CancelOnClose = false
 	PanicHandler = nil
 	LogHandler = nil
 	defaultMW = newWares()
