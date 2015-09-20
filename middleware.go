@@ -6,10 +6,10 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/zenazn/goji/web/mutil"
 	"golang.org/x/net/context"
 
-	"github.com/go-kami/tree"
-	"github.com/zenazn/goji/web/mutil"
+	"github.com/guregu/kami/internal/treemux"
 )
 
 // Middleware is a function that takes the current request context and returns a new request context.
@@ -45,8 +45,8 @@ type AfterwareType interface{}
 type wares struct {
 	middleware     map[string][]Middleware
 	afterware      map[string][]Afterware
-	wildcards      *tree.Node
-	afterWildcards *tree.Node
+	wildcards      *treemux.TreeMux
+	afterWildcards *treemux.TreeMux
 }
 
 func newWares() *wares {
@@ -58,9 +58,9 @@ func newWares() *wares {
 func (m *wares) Use(path string, mw MiddlewareType) {
 	if containsWildcard(path) {
 		if m.wildcards == nil {
-			m.wildcards = new(tree.Node)
+			m.wildcards = treemux.New()
 		}
-		m.wildcards.AddRoute(path, convert(mw))
+		m.wildcards.Set(path, convert(mw))
 	} else {
 		if m.middleware == nil {
 			m.middleware = make(map[string][]Middleware)
@@ -78,9 +78,9 @@ func (m *wares) After(path string, afterware AfterwareType) {
 	aw := convertAW(afterware)
 	if containsWildcard(path) {
 		if m.afterWildcards == nil {
-			m.afterWildcards = new(tree.Node)
+			m.afterWildcards = treemux.New()
 		}
-		m.afterWildcards.AddRoute(path, aw)
+		m.afterWildcards.Set(path, aw)
 	} else {
 		if m.afterware == nil {
 			m.afterware = make(map[string][]Afterware)
@@ -142,7 +142,7 @@ func (m *wares) run(ctx context.Context, w http.ResponseWriter, r *http.Request)
 
 	if m.wildcards != nil {
 		// wildcard middleware
-		if wild, params, _ := m.wildcards.GetValue(r.URL.Path); wild != nil {
+		if wild, params := m.wildcards.Get(r.URL.Path); wild != nil {
 			if mw, ok := wild.(Middleware); ok {
 				ctx = mergeParams(ctx, params)
 				result := mw(ctx, w, r)
@@ -162,7 +162,7 @@ func (m *wares) run(ctx context.Context, w http.ResponseWriter, r *http.Request)
 func (m *wares) after(ctx context.Context, w mutil.WriterProxy, r *http.Request) context.Context {
 	if m.afterWildcards != nil {
 		// wildcard afterware
-		if wild, params, _ := m.afterWildcards.GetValue(r.URL.Path); wild != nil {
+		if wild, params := m.afterWildcards.Get(r.URL.Path); wild != nil {
 			if aw, ok := wild.(Afterware); ok {
 				ctx = mergeParams(ctx, params)
 				result := aw(ctx, w, r)

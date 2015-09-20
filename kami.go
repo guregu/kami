@@ -3,7 +3,7 @@ package kami
 import (
 	"net/http"
 
-	"github.com/julienschmidt/httprouter"
+	"github.com/dimfeld/httptreemux"
 	"github.com/zenazn/goji/web/mutil"
 	"golang.org/x/net/context"
 )
@@ -19,12 +19,24 @@ var (
 	LogHandler func(context.Context, mutil.WriterProxy, *http.Request)
 )
 
-var routes = httprouter.New()
+var (
+	routes    = newRouter()
+	enable405 = true
+)
 
 func init() {
 	// set up the default 404/405 handlers
 	NotFound(nil)
 	MethodNotAllowed(nil)
+}
+
+func newRouter() *httptreemux.TreeMux {
+	r := httptreemux.New()
+	r.RedirectBehavior = httptreemux.Redirect307
+	r.RedirectMethodBehavior = map[string]httptreemux.RedirectBehavior{
+		"GET": httptreemux.Redirect301,
+	}
+	return r
 }
 
 // Handler returns an http.Handler serving registered routes.
@@ -84,9 +96,9 @@ func NotFound(handler HandlerType) {
 	}
 
 	h := defaultBless(wrap(handler))
-	routes.NotFound = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	routes.NotFoundHandler = func(w http.ResponseWriter, r *http.Request) {
 		h(w, r, nil)
-	})
+	}
 }
 
 // MethodNotAllowed registers a special handler for automatically responding
@@ -102,26 +114,30 @@ func MethodNotAllowed(handler HandlerType) {
 	}
 
 	h := defaultBless(wrap(handler))
-	routes.MethodNotAllowed = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	routes.MethodNotAllowedHandler = func(w http.ResponseWriter, r *http.Request, methods map[string]httptreemux.HandlerFunc) {
+		if !enable405 {
+			routes.NotFoundHandler(w, r)
+			return
+		}
 		h(w, r, nil)
-	})
+	}
 }
 
 // EnableMethodNotAllowed enables or disables automatic Method Not Allowed handling.
 // Note that this is enabled by default.
 func EnableMethodNotAllowed(enabled bool) {
-	routes.HandleMethodNotAllowed = enabled
+	enable405 = enabled
 }
 
-func defaultBless(k ContextHandler) httprouter.Handle {
+func defaultBless(k ContextHandler) httptreemux.HandlerFunc {
 	return bless(k, &Context, defaultMW, &PanicHandler, &LogHandler)
 }
 
 // bless is the meat of kami.
 // It wraps a ContextHandler into an httprouter compatible request,
 // in order to run all the middleware and other special handlers.
-func bless(h ContextHandler, base *context.Context, mw *wares, panicHandler *HandlerType, logHandler *func(context.Context, mutil.WriterProxy, *http.Request)) httprouter.Handle {
-	return func(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+func bless(h ContextHandler, base *context.Context, mw *wares, panicHandler *HandlerType, logHandler *func(context.Context, mutil.WriterProxy, *http.Request)) httptreemux.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request, params map[string]string) {
 		ctx := defaultContext(*base, r)
 		if len(params) > 0 {
 			ctx = newContextWithParams(ctx, params)
@@ -173,7 +189,7 @@ func Reset() {
 	PanicHandler = nil
 	LogHandler = nil
 	defaultMW = newWares()
-	routes = httprouter.New()
+	routes = newRouter()
 	NotFound(nil)
 	MethodNotAllowed(nil)
 }
