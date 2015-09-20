@@ -32,6 +32,7 @@ func init() {
 
 func newRouter() *httptreemux.TreeMux {
 	r := httptreemux.New()
+	r.PathSource = httptreemux.URLPath
 	r.RedirectBehavior = httptreemux.Redirect307
 	r.RedirectMethodBehavior = map[string]httptreemux.RedirectBehavior{
 		"GET": httptreemux.Redirect301,
