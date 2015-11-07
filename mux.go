@@ -129,6 +129,14 @@ func (m *Mux) EnableMethodNotAllowed(enabled bool) {
 	m.enable405 = enabled
 }
 
-func (m *Mux) bless(k ContextHandler) httptreemux.HandlerFunc {
-	return bless(k, &m.Context, m.wares, &m.PanicHandler, &m.LogHandler)
+// bless creates a new kamified handler.
+func (m *Mux) bless(h ContextHandler) httptreemux.HandlerFunc {
+	k := kami{
+		handler:      h,
+		base:         &m.Context,
+		middleware:   m.wares,
+		panicHandler: &m.PanicHandler,
+		logHandler:   &m.LogHandler,
+	}
+	return k.handle
 }
