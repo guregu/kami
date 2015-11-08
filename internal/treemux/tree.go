@@ -41,6 +41,9 @@ func (n *node) sortStaticChild(i int) {
 }
 
 func (n *node) setValue(v interface{}) {
+	if n.leafValue != nil {
+		panic(fmt.Errorf("treemux: duplicate value for path %s", n.path))
+	}
 	n.leafValue = v
 }
 
