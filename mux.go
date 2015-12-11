@@ -72,7 +72,7 @@ func (m *Mux) Head(path string, handler HandlerType) {
 	m.Handle("HEAD", path, handler)
 }
 
-// Head registers a OPTIONS handler under the given path.
+// Options registers a OPTIONS handler under the given path.
 func (m *Mux) Options(path string, handler HandlerType) {
 	m.Handle("OPTIONS", path, handler)
 }
