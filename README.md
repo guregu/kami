@@ -1,4 +1,4 @@
-## kami [![GoDoc](https://godoc.org/github.com/guregu/kami?status.svg)](https://godoc.org/github.com/guregu/kami) [![Coverage](http://gocover.io/_badge/github.com/guregu/kami?0)](http://gocover.io/github.com/guregu/kami)
+## kami [![GoDoc](https://godoc.org/github.com/guregu/kami?status.svg)](https://godoc.org/github.com/guregu/kami) [![Coverage](http://gocover.io/_badge/github.com/guregu/kami)](http://gocover.io/github.com/guregu/kami)
 `import "github.com/guregu/kami"` [or](http://gopkg.in) `import "gopkg.in/guregu/kami.v1"`
 
 kami (神) is a tiny web framework using [x/net/context](https://blog.golang.org/context) for request context and [HttpRouter](https://github.com/julienschmidt/httprouter) for routing. It includes a simple system for running hierarchical middleware before and after requests, in addition to log and panic hooks. Graceful restart via einhorn is also supported.
@@ -201,6 +201,13 @@ This gives afterware under specific paths the ability to use resources that may 
 Unlike middleware, afterware returning **nil** will not stop the remaining afterware from being evaluated. 
 
 `kami.After("/path", afterware)` supports many different types of functions, see the docs for `kami.AfterwareType` for more details. 
+
+#### Automatic cancellation
+```go
+kami.CancelOnClose = true 
+```
+
+By setting `kami.CancelOnClose` (or its `*kami.Mux` equivalent) to **true**, a request's context will automatically be cancelled if its connection is closed. Check out [the docs for Context](https://godoc.org/golang.org/x/net/context#Context) on how to use `ctx.Done()` and [this article](https://blog.golang.org/pipelines) for more information on pipeline pattern. 
 
 ### Independent stacks with `*kami.Mux`
 

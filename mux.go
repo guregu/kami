@@ -13,6 +13,9 @@ type Mux struct {
 	// Context is the root "god object" for this mux,
 	// from which every request's context will derive.
 	Context context.Context
+	// CancelOnClose decides whether to cancel a request's context automatically
+	// if the request's connection is closed. Default value is false.
+	CancelOnClose bool
 	// PanicHandler will, if set, be called on panics.
 	// You can use kami.Exception(ctx) within the panic handler to get panic details.
 	PanicHandler HandlerType
@@ -124,5 +127,5 @@ func (m *Mux) EnableMethodNotAllowed(enabled bool) {
 }
 
 func (m *Mux) bless(k ContextHandler) httprouter.Handle {
-	return bless(k, &m.Context, m.wares, &m.PanicHandler, &m.LogHandler)
+	return bless(k, &m.Context, m.wares, &m.PanicHandler, &m.LogHandler, &m.CancelOnClose)
 }

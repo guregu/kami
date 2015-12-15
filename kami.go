@@ -11,6 +11,9 @@ import (
 var (
 	// Context is the root "god object" from which every request's context will derive.
 	Context = context.Background()
+	// CancelOnClose decides whether to cancel a request's context automatically
+	// if the request's connection is closed.
+	CancelOnClose = false
 
 	// PanicHandler will, if set, be called on panics.
 	// You can use kami.Exception(ctx) within the panic handler to get panic details.
@@ -114,15 +117,31 @@ func EnableMethodNotAllowed(enabled bool) {
 }
 
 func defaultBless(k ContextHandler) httprouter.Handle {
-	return bless(k, &Context, defaultMW, &PanicHandler, &LogHandler)
+	return bless(k, &Context, defaultMW, &PanicHandler, &LogHandler, &CancelOnClose)
 }
 
 // bless is the meat of kami.
 // It wraps a ContextHandler into an httprouter compatible request,
 // in order to run all the middleware and other special handlers.
-func bless(h ContextHandler, base *context.Context, mw *wares, panicHandler *HandlerType, logHandler *func(context.Context, mutil.WriterProxy, *http.Request)) httprouter.Handle {
+func bless(h ContextHandler, base *context.Context, mw *wares, panicHandler *HandlerType, logHandler *func(context.Context, mutil.WriterProxy, *http.Request), cancelOnClose *bool) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 		ctx := defaultContext(*base, r)
+		if *cancelOnClose {
+			var cancel func()
+			ctx, cancel = context.WithCancel(ctx)
+			defer cancel()
+
+			// cancel our context if connection is closed
+			if closeNotifier, ok := w.(http.CloseNotifier); ok {
+				go func() {
+					select {
+					case <-ctx.Done():
+					case <-closeNotifier.CloseNotify():
+						cancel()
+					}
+				}()
+			}
+		}
 		if len(params) > 0 {
 			ctx = newContextWithParams(ctx, params)
 		}
@@ -170,6 +189,7 @@ func bless(h ContextHandler, base *context.Context, mw *wares, panicHandler *Han
 // It removes every handler and all middleware.
 func Reset() {
 	Context = context.Background()
+	CancelOnClose = false
 	PanicHandler = nil
 	LogHandler = nil
 	defaultMW = newWares()
