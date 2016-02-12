@@ -3,7 +3,7 @@ package kami
 import (
 	"net/http"
 
-	"github.com/julienschmidt/httprouter"
+	"github.com/dimfeld/httptreemux"
 	"github.com/zenazn/goji/web/mutil"
 	"golang.org/x/net/context"
 )
@@ -19,7 +19,8 @@ type Mux struct {
 	// LogHandler will, if set, wrap every request and be called at the very end.
 	LogHandler func(context.Context, mutil.WriterProxy, *http.Request)
 
-	routes *httprouter.Router
+	routes    *httptreemux.TreeMux
+	enable405 bool
 	*wares
 }
 
@@ -27,9 +28,10 @@ type Mux struct {
 // It is totally separate from the global kami.Context and middleware stack.
 func New() *Mux {
 	m := &Mux{
-		Context: context.Background(),
-		routes:  httprouter.New(),
-		wares:   newWares(),
+		Context:   context.Background(),
+		routes:    newRouter(),
+		wares:     newWares(),
+		enable405: true,
 	}
 	m.NotFound(nil)
 	m.MethodNotAllowed(nil)
@@ -94,9 +96,9 @@ func (m *Mux) NotFound(handler HandlerType) {
 	}
 
 	h := m.bless(wrap(handler))
-	m.routes.NotFound = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	m.routes.NotFoundHandler = func(w http.ResponseWriter, r *http.Request) {
 		h(w, r, nil)
-	})
+	}
 }
 
 // MethodNotAllowed registers a special handler for automatically responding
@@ -112,17 +114,29 @@ func (m *Mux) MethodNotAllowed(handler HandlerType) {
 	}
 
 	h := m.bless(wrap(handler))
-	m.routes.MethodNotAllowed = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	m.routes.MethodNotAllowedHandler = func(w http.ResponseWriter, r *http.Request, methods map[string]httptreemux.HandlerFunc) {
+		if !m.enable405 {
+			m.routes.NotFoundHandler(w, r)
+			return
+		}
 		h(w, r, nil)
-	})
+	}
 }
 
 // EnableMethodNotAllowed enables or disables automatic Method Not Allowed handling.
 // Note that this is enabled by default.
 func (m *Mux) EnableMethodNotAllowed(enabled bool) {
-	m.routes.HandleMethodNotAllowed = enabled
+	m.enable405 = enabled
 }
 
-func (m *Mux) bless(k ContextHandler) httprouter.Handle {
-	return bless(k, &m.Context, m.wares, &m.PanicHandler, &m.LogHandler)
+// bless creates a new kamified handler.
+func (m *Mux) bless(h ContextHandler) httptreemux.HandlerFunc {
+	k := kami{
+		handler:      h,
+		base:         &m.Context,
+		middleware:   m.wares,
+		panicHandler: &m.PanicHandler,
+		logHandler:   &m.LogHandler,
+	}
+	return k.handle
 }

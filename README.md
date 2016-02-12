@@ -1,7 +1,7 @@
 ## kami [![GoDoc](https://godoc.org/github.com/guregu/kami?status.svg)](https://godoc.org/github.com/guregu/kami) [![Coverage](http://gocover.io/_badge/github.com/guregu/kami?0)](http://gocover.io/github.com/guregu/kami)
 `import "github.com/guregu/kami"` [or](http://gopkg.in) `import "gopkg.in/guregu/kami.v1"`
 
-kami (神) is a tiny web framework using [x/net/context](https://blog.golang.org/context) for request context and [HttpRouter](https://github.com/julienschmidt/httprouter) for routing. It includes a simple system for running hierarchical middleware before and after requests, in addition to log and panic hooks. Graceful restart via einhorn is also supported.
+kami (神) is a tiny web framework using [x/net/context](https://blog.golang.org/context) for request context and [httptreemux](https://github.com/dimfeld/httptreemux) for routing. It includes a simple system for running hierarchical middleware before and after requests, in addition to log and panic hooks. Graceful restart via einhorn is also supported.
 
 kami is designed to be used as central registration point for your routes, middleware, and context "god object". You are encouraged to use the global functions, but kami supports multiple muxes with `kami.New()`. 
 
@@ -97,7 +97,7 @@ func FromContext(ctx context.Context) string {
 
 ### Usage
 
-* Set up routes using `kami.Get("/path", handler)`, `kami.Post(...)`, etc. You can use [named parameters](https://github.com/julienschmidt/httprouter#named-parameters) or [wildcards](https://github.com/julienschmidt/httprouter#catch-all-parameters) in URLs like `/hello/:name/edit` or `/files/*path`, and access them using the context kami gives you: `kami.Param(ctx, "name")`. The following kinds of handlers are accepted:
+* Set up routes using `kami.Get("/path", handler)`, `kami.Post(...)`, etc. You can use named parameters or wildcards in URLs like `/hello/:name/edit` or `/files/*path`, and access them using the context kami gives you: `kami.Param(ctx, "name")`. See the [routing rules](https://github.com/dimfeld/httptreemux#routing-rules) and [routing priority](https://github.com/dimfeld/httptreemux#routing-priority). The following kinds of handlers are accepted:
   * types that implement `kami.ContextHandler`
   * `func(context.Context, http.ResponseWriter, *http.Request)`
   * types that implement `http.Handler`
@@ -239,5 +239,5 @@ MIT
 
 ### Acknowledgements
 
-* [HttpRouter](https://github.com/julienschmidt/httprouter): router
+* [httptreemux](https://github.com/dimfeld/httptreemux): router
 * [Goji](https://github.com/zenazn/goji): graceful, WriterProxy

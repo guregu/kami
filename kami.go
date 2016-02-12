@@ -3,7 +3,7 @@ package kami
 import (
 	"net/http"
 
-	"github.com/julienschmidt/httprouter"
+	"github.com/dimfeld/httptreemux"
 	"github.com/zenazn/goji/web/mutil"
 	"golang.org/x/net/context"
 )
@@ -19,12 +19,25 @@ var (
 	LogHandler func(context.Context, mutil.WriterProxy, *http.Request)
 )
 
-var routes = httprouter.New()
+var (
+	routes    = newRouter()
+	enable405 = true
+)
 
 func init() {
 	// set up the default 404/405 handlers
 	NotFound(nil)
 	MethodNotAllowed(nil)
+}
+
+func newRouter() *httptreemux.TreeMux {
+	r := httptreemux.New()
+	r.PathSource = httptreemux.URLPath
+	r.RedirectBehavior = httptreemux.Redirect307
+	r.RedirectMethodBehavior = map[string]httptreemux.RedirectBehavior{
+		"GET": httptreemux.Redirect301,
+	}
+	return r
 }
 
 // Handler returns an http.Handler serving registered routes.
@@ -34,7 +47,7 @@ func Handler() http.Handler {
 
 // Handle registers an arbitrary method handler under the given path.
 func Handle(method, path string, handler HandlerType) {
-	routes.Handle(method, path, defaultBless(wrap(handler)))
+	routes.Handle(method, path, bless(wrap(handler)))
 }
 
 // Get registers a GET handler under the given path.
@@ -83,10 +96,10 @@ func NotFound(handler HandlerType) {
 		})
 	}
 
-	h := defaultBless(wrap(handler))
-	routes.NotFound = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	h := bless(wrap(handler))
+	routes.NotFoundHandler = func(w http.ResponseWriter, r *http.Request) {
 		h(w, r, nil)
-	})
+	}
 }
 
 // MethodNotAllowed registers a special handler for automatically responding
@@ -101,68 +114,92 @@ func MethodNotAllowed(handler HandlerType) {
 		})
 	}
 
-	h := defaultBless(wrap(handler))
-	routes.MethodNotAllowed = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	h := bless(wrap(handler))
+	routes.MethodNotAllowedHandler = func(w http.ResponseWriter, r *http.Request, methods map[string]httptreemux.HandlerFunc) {
+		if !enable405 {
+			routes.NotFoundHandler(w, r)
+			return
+		}
 		h(w, r, nil)
-	})
+	}
 }
 
 // EnableMethodNotAllowed enables or disables automatic Method Not Allowed handling.
 // Note that this is enabled by default.
 func EnableMethodNotAllowed(enabled bool) {
-	routes.HandleMethodNotAllowed = enabled
+	enable405 = enabled
 }
 
-func defaultBless(k ContextHandler) httprouter.Handle {
-	return bless(k, &Context, defaultMW, &PanicHandler, &LogHandler)
+// bless creates a new kamified handler using the global mux and middleware.
+func bless(h ContextHandler) httptreemux.HandlerFunc {
+	k := kami{
+		handler:      h,
+		base:         &Context,
+		middleware:   defaultMW,
+		panicHandler: &PanicHandler,
+		logHandler:   &LogHandler,
+	}
+	return k.handle
 }
 
-// bless is the meat of kami.
+// kami is the heart of the package.
 // It wraps a ContextHandler into an httprouter compatible request,
 // in order to run all the middleware and other special handlers.
-func bless(h ContextHandler, base *context.Context, mw *wares, panicHandler *HandlerType, logHandler *func(context.Context, mutil.WriterProxy, *http.Request)) httprouter.Handle {
-	return func(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-		ctx := defaultContext(*base, r)
-		if len(params) > 0 {
-			ctx = newContextWithParams(ctx, params)
-		}
-		ranLogHandler := false // track this in case the log handler blows up
+type kami struct {
+	handler      ContextHandler
+	base         *context.Context
+	middleware   *wares
+	panicHandler *HandlerType
+	logHandler   *func(context.Context, mutil.WriterProxy, *http.Request)
+}
 
-		var proxy mutil.WriterProxy
-		if *logHandler != nil || mw.needsWrapper() {
-			proxy = mutil.WrapWriter(w)
-			w = proxy
-		}
+func (k kami) handle(w http.ResponseWriter, r *http.Request, params map[string]string) {
+	var (
+		ctx           = defaultContext(*k.base, r)
+		handler       = k.handler
+		mw            = *k.middleware
+		panicHandler  = *k.panicHandler
+		logHandler    = *k.logHandler
+		ranLogHandler = false // track this in case the log handler blows up
+	)
+	if len(params) > 0 {
+		ctx = newContextWithParams(ctx, params)
+	}
 
-		if *panicHandler != nil {
-			defer func() {
-				if err := recover(); err != nil {
-					ctx = newContextWithException(ctx, err)
-					wrap(*panicHandler).ServeHTTPContext(ctx, w, r)
+	var proxy mutil.WriterProxy
+	if logHandler != nil || mw.needsWrapper() {
+		proxy = mutil.WrapWriter(w)
+		w = proxy
+	}
 
-					if *logHandler != nil && !ranLogHandler {
-						(*logHandler)(ctx, proxy, r)
-						// should only happen if header hasn't been written
-						proxy.WriteHeader(http.StatusInternalServerError)
-					}
+	if panicHandler != nil {
+		defer func() {
+			if err := recover(); err != nil {
+				ctx = newContextWithException(ctx, err)
+				wrap(panicHandler).ServeHTTPContext(ctx, w, r)
+
+				if logHandler != nil && !ranLogHandler {
+					logHandler(ctx, proxy, r)
+					// should only happen if header hasn't been written
+					proxy.WriteHeader(http.StatusInternalServerError)
 				}
-			}()
-		}
+			}
+		}()
+	}
 
-		ctx, ok := mw.run(ctx, w, r)
-		if ok {
-			h.ServeHTTPContext(ctx, w, r)
-		}
-		if proxy != nil {
-			ctx = mw.after(ctx, proxy, r)
-		}
+	ctx, ok := mw.run(ctx, w, r)
+	if ok {
+		handler.ServeHTTPContext(ctx, w, r)
+	}
+	if proxy != nil {
+		ctx = mw.after(ctx, proxy, r)
+	}
 
-		if *logHandler != nil {
-			ranLogHandler = true
-			(*logHandler)(ctx, proxy, r)
-			// should only happen if header hasn't been written
-			proxy.WriteHeader(http.StatusInternalServerError)
-		}
+	if logHandler != nil {
+		ranLogHandler = true
+		logHandler(ctx, proxy, r)
+		// should only happen if header hasn't been written
+		proxy.WriteHeader(http.StatusInternalServerError)
 	}
 }
 
@@ -173,7 +210,7 @@ func Reset() {
 	PanicHandler = nil
 	LogHandler = nil
 	defaultMW = newWares()
-	routes = httprouter.New()
+	routes = newRouter()
 	NotFound(nil)
 	MethodNotAllowed(nil)
 }
