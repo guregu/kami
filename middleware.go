@@ -9,7 +9,7 @@ import (
 	"github.com/zenazn/goji/web/mutil"
 	"golang.org/x/net/context"
 
-	"github.com/guregu/kami/internal/treemux"
+	"github.com/guregu/kami/treemux"
 )
 
 // Middleware is a function that takes the current request context and returns a new request context.
@@ -36,10 +36,10 @@ type Afterware func(context.Context, mutil.WriterProxy, *http.Request) context.C
 // The following concrete types are accepted:
 //  - Afterware
 //  - func(context.Context, mutil.WriterProxy, *http.Request) context.Context
-// 	- func(context.Context, http.ResponseWriter, *http.Request) context.Context
+//  - func(context.Context, http.ResponseWriter, *http.Request) context.Context
 //  - func(context.Context, *http.Request) context.Context
 //  - func(context.Context) context.Context
-// 	- Middleware
+//  - Middleware
 type AfterwareType interface{}
 
 type wares struct {
