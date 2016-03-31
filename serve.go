@@ -21,12 +21,22 @@ func init() {
 
 // Serve starts kami with reasonable defaults.
 // It works (exactly) like Goji, looking for Einhorn, the bind flag, GOJI_BIND...
+func ServeMux(mux *Mux) {
+	if !flag.Parsed() {
+		flag.Parse()
+	}
+
+	ServeListener(bind.Default(), mux)
+}
+
+// Serve starts kami with reasonable defaults.
+// It works (exactly) like Goji, looking for Einhorn, the bind flag, GOJI_BIND...
 func Serve() {
 	if !flag.Parsed() {
 		flag.Parse()
 	}
 
-	ServeListener(bind.Default())
+	ServeListener(bind.Default(), Handler())
 }
 
 // ServeTLS is like Serve, but enables TLS using the given config.
@@ -35,14 +45,14 @@ func ServeTLS(config *tls.Config) {
 		flag.Parse()
 	}
 
-	ServeListener(tls.NewListener(bind.Default(), config))
+	ServeListener(tls.NewListener(bind.Default(), config), Handler())
 }
 
 // ServeListener is like Serve, but runs kami on top of an arbitrary net.Listener.
-func ServeListener(listener net.Listener) {
+func ServeListener(listener net.Listener, h http.Handler) {
 	// Install our handler at the root of the standard net/http default mux.
 	// This allows packages like expvar to continue working as expected.
-	http.Handle("/", Handler())
+	http.Handle("/", h)
 
 	log.Println("Starting kami on", listener.Addr())
 
