@@ -1,10 +1,13 @@
+// +build go1.7
+
 package kami
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
-	"golang.org/x/net/context"
+	netcontext "golang.org/x/net/context"
 )
 
 // HandlerType is the type of Handlers and types that kami internally converts to
@@ -22,6 +25,11 @@ type ContextHandler interface {
 	ServeHTTPContext(context.Context, http.ResponseWriter, *http.Request)
 }
 
+// OldContextHandler is like ContextHandler but uses the old x/net/context.
+type OldContextHandler interface {
+	ServeHTTPContext(netcontext.Context, http.ResponseWriter, *http.Request)
+}
+
 // HandlerFunc is like http.HandlerFunc with context.
 type HandlerFunc func(context.Context, http.ResponseWriter, *http.Request)
 
@@ -36,6 +44,10 @@ func wrap(h HandlerType) ContextHandler {
 		return x
 	case func(context.Context, http.ResponseWriter, *http.Request):
 		return HandlerFunc(x)
+	case func(netcontext.Context, http.ResponseWriter, *http.Request):
+		return HandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+			x(ctx, w, r)
+		})
 	case http.Handler:
 		return HandlerFunc(func(_ context.Context, w http.ResponseWriter, r *http.Request) {
 			x.ServeHTTP(w, r)

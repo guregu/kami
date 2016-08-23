@@ -48,10 +48,10 @@ func TestWildcardMiddleware(t *testing.T) {
 
 func TestHierarchicalStop(t *testing.T) {
 	kami.Reset()
-	kami.Use("/nope/", kami.Middleware(func(ctx context.Context, w http.ResponseWriter, r *http.Request) context.Context {
+	kami.Use("/nope/", func(ctx context.Context, w http.ResponseWriter, r *http.Request) context.Context {
 		w.WriteHeader(http.StatusForbidden)
 		return nil
-	}))
+	})
 	kami.Delete("/nope/test", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})

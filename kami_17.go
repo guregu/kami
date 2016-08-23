@@ -1,12 +1,12 @@
-// +build !go1.7
+// +build go1.7
 
 package kami
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/zenazn/goji/web/mutil"
-	"golang.org/x/net/context"
 )
 
 // kami is the heart of the package.
@@ -33,6 +33,10 @@ func (k kami) handle(w http.ResponseWriter, r *http.Request, params map[string]s
 		ctx = newContextWithParams(ctx, params)
 	}
 
+	if ctx != context.Background() {
+		r = r.WithContext(ctx)
+	}
+
 	var proxy mutil.WriterProxy
 	if logHandler != nil || mw.needsWrapper() {
 		proxy = mutil.WrapWriter(w)
@@ -43,6 +47,7 @@ func (k kami) handle(w http.ResponseWriter, r *http.Request, params map[string]s
 		defer func() {
 			if err := recover(); err != nil {
 				ctx = newContextWithException(ctx, err)
+				r = r.WithContext(ctx)
 				wrap(panicHandler).ServeHTTPContext(ctx, w, r)
 
 				if logHandler != nil && !ranLogHandler {
@@ -54,12 +59,12 @@ func (k kami) handle(w http.ResponseWriter, r *http.Request, params map[string]s
 		}()
 	}
 
-	ctx, ok := mw.run(ctx, w, r)
+	r, ctx, ok := mw.run(ctx, w, r)
 	if ok {
 		handler.ServeHTTPContext(ctx, w, r)
 	}
 	if proxy != nil {
-		ctx = mw.after(ctx, proxy, r)
+		r, ctx = mw.after(ctx, proxy, r)
 	}
 
 	if logHandler != nil {
