@@ -1,7 +1,7 @@
 ## kami [![GoDoc](https://godoc.org/github.com/guregu/kami?status.svg)](https://godoc.org/github.com/guregu/kami) [![CircleCI](https://circleci.com/gh/guregu/kami.svg?style=svg)](https://circleci.com/gh/guregu/kami)
 `import "github.com/guregu/kami"` [or](http://gopkg.in) `import "gopkg.in/guregu/kami.v1"`
 
-kami (神) is a tiny web framework using [x/net/context](https://blog.golang.org/context) for request context and [httptreemux](https://github.com/dimfeld/httptreemux) for routing. It includes a simple system for running hierarchical middleware before and after requests, in addition to log and panic hooks. Graceful restart via einhorn is also supported.
+kami (神) is a tiny web framework using [context](https://blog.golang.org/context) for request context and [httptreemux](https://github.com/dimfeld/httptreemux) for routing. It includes a simple system for running hierarchical middleware before and after requests, in addition to log and panic hooks. Graceful restart via einhorn is also supported. 
 
 kami is designed to be used as central registration point for your routes, middleware, and context "god object". You are encouraged to use the global functions, but kami supports multiple muxes with `kami.New()`. 
 
@@ -9,8 +9,10 @@ You are free to mount `kami.Handler()` wherever you wish, but a helpful `kami.Se
 
 Here is a [presentation about the birth of kami](http://go-talks.appspot.com/github.com/guregu/slides/kami/kami.slide), explaining some of the design choices. 
 
+Both `context` and `x/net/context` are supported.
+
 ### Example
-A contrived example using kami and x/net/context to localize greetings.
+A contrived example using kami and context to localize greetings.
 
 [Skip :fast_forward:](#usage)
 
@@ -22,9 +24,9 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"context"
 
 	"github.com/guregu/kami"
-	"golang.org/x/net/context"
 
 	"github.com/my-github/greeting" // see package greeting below
 )
@@ -52,8 +54,8 @@ package greeting
 
 import (
 	"net/http"
+	"context"
 
-	"golang.org/x/net/context"
 	"golang.org/x/text/language"
 )
 

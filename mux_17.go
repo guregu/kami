@@ -1,13 +1,13 @@
-// +build !go1.7
+// +build go1.7
 
 package kami
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/dimfeld/httptreemux"
 	"github.com/zenazn/goji/web/mutil"
-	"golang.org/x/net/context"
 )
 
 // Mux is an independent kami router and middleware stack. Manipulating it is not threadsafe.
