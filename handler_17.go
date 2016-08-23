@@ -30,12 +30,6 @@ type OldContextHandler interface {
 	ServeHTTPContext(netcontext.Context, http.ResponseWriter, *http.Request)
 }
 
-func old2new(old OldContextHandler) ContextHandler {
-	return HandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-		old.ServeHTTPContext(ctx, w, r)
-	})
-}
-
 // HandlerFunc is like http.HandlerFunc with context.
 type HandlerFunc func(context.Context, http.ResponseWriter, *http.Request)
 

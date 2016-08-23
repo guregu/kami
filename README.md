@@ -1,5 +1,5 @@
 ## kami [![GoDoc](https://godoc.org/github.com/guregu/kami?status.svg)](https://godoc.org/github.com/guregu/kami) [![CircleCI](https://circleci.com/gh/guregu/kami.svg?style=svg)](https://circleci.com/gh/guregu/kami)
-`import "github.com/guregu/kami"` [or](http://gopkg.in) `import "gopkg.in/guregu/kami.v1"`
+`import "github.com/guregu/kami"` [or](http://gopkg.in) `import "gopkg.in/guregu/kami.v2"`
 
 kami (神) is a tiny web framework using [context](https://blog.golang.org/context) for request context and [httptreemux](https://github.com/dimfeld/httptreemux) for routing. It includes a simple system for running hierarchical middleware before and after requests, in addition to log and panic hooks. Graceful restart via einhorn is also supported. 
 
