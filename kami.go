@@ -5,7 +5,6 @@ package kami
 import (
 	"net/http"
 
-	"github.com/dimfeld/httptreemux"
 	"github.com/zenazn/goji/web/mutil"
 	"golang.org/x/net/context"
 )

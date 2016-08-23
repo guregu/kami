@@ -5,6 +5,7 @@ package kami
 import (
 	"fmt"
 	"net/http"
+	"unicode/utf8"
 
 	"github.com/zenazn/goji/web/mutil"
 	"golang.org/x/net/context"
