@@ -23,10 +23,11 @@ type Middleware func(context.Context, http.ResponseWriter, *http.Request) contex
 // The following concrete types are accepted:
 // 	- Middleware
 // 	- func(context.Context, http.ResponseWriter, *http.Request) context.Context
+// 	- func(http.ResponseWriter, *http.Request) context.Context
 // 	- func(http.Handler) http.Handler               [* see Use docs]
 // 	- func(http.ContextHandler) http.ContextHandler [* see Use docs]
 //  - http.Handler 									[read only]
-//  - func(w http.ResponseWriter, r *http.Request)  [read only]
+//  - func(http.ResponseWriter, *http.Request)      [read only]
 // The old x/net/context is also supported.
 type MiddlewareType interface{}
 
@@ -42,7 +43,7 @@ type Afterware func(context.Context, mutil.WriterProxy, *http.Request) context.C
 //  - func(context.Context, http.ResponseWriter, *http.Request) context.Context
 //  - func(context.Context, *http.Request) context.Context
 //  - func(context.Context) context.Context
-//  - Middleware
+//  - Middleware types
 // The old x/net/context is also supported.
 type AfterwareType interface{}
 
@@ -184,6 +185,10 @@ func convert(mw MiddlewareType) Middleware {
 			x(w, r)
 			return r.Context()
 		})
+	case func(w http.ResponseWriter, r *http.Request) context.Context:
+		return Middleware(func(_ context.Context, w http.ResponseWriter, r *http.Request) context.Context {
+			return x(w, r)
+		})
 	}
 	panic(fmt.Errorf("unsupported MiddlewareType: %T", mw))
 }
@@ -227,12 +232,25 @@ func convertAW(aw AfterwareType) Afterware {
 		return func(ctx context.Context, w mutil.WriterProxy, r *http.Request) context.Context {
 			return x(ctx, w, r)
 		}
+	case func(w http.ResponseWriter, r *http.Request) context.Context:
+		return Afterware(func(_ context.Context, w mutil.WriterProxy, r *http.Request) context.Context {
+			return x(w, r)
+		})
+	case func(w mutil.WriterProxy, r *http.Request) context.Context:
+		return Afterware(func(_ context.Context, w mutil.WriterProxy, r *http.Request) context.Context {
+			return x(w, r)
+		})
 	case http.Handler:
 		return Afterware(func(_ context.Context, w mutil.WriterProxy, r *http.Request) context.Context {
 			x.ServeHTTP(w, r)
 			return r.Context()
 		})
 	case func(w http.ResponseWriter, r *http.Request):
+		return Afterware(func(_ context.Context, w mutil.WriterProxy, r *http.Request) context.Context {
+			x(w, r)
+			return r.Context()
+		})
+	case func(w mutil.WriterProxy, r *http.Request):
 		return Afterware(func(_ context.Context, w mutil.WriterProxy, r *http.Request) context.Context {
 			x(w, r)
 			return r.Context()
