@@ -22,6 +22,16 @@ func Param(ctx context.Context, name string) string {
 	return params[name]
 }
 
+// SetParameter will set the value of a path parameter in a given context.
+func SetParameter(ctx context.Context, name string, value string) context.Context {
+	params, ok := ctx.Value(paramsKey).(map[string]string)
+	if !ok {
+		params = make(map[string]string)
+	}
+	params[name] = value
+	return context.WithValue(ctx, paramsKey, params)
+}
+
 // Exception gets the "v" in panic(v). The panic details.
 // Only PanicHandler will receive a context you can use this with.
 func Exception(ctx context.Context) interface{} {
