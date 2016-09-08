@@ -24,7 +24,14 @@ func (m *wares) Use(path string, mw MiddlewareType) {
 		if m.wildcards == nil {
 			m.wildcards = treemux.New()
 		}
-		m.wildcards.Set(path, convert(mw))
+		mw := convert(mw)
+		iface, _ := m.wildcards.Get(path)
+		if chain, ok := iface.(*[]Middleware); ok {
+			*chain = append(*chain, mw)
+		} else {
+			chain := []Middleware{mw}
+			m.wildcards.Set(path, &chain)
+		}
 	} else {
 		if m.middleware == nil {
 			m.middleware = make(map[string][]Middleware)
@@ -44,7 +51,13 @@ func (m *wares) After(path string, afterware AfterwareType) {
 		if m.afterWildcards == nil {
 			m.afterWildcards = treemux.New()
 		}
-		m.afterWildcards.Set(path, aw)
+		iface, _ := m.afterWildcards.Get(path)
+		if chain, ok := iface.(*[]Afterware); ok {
+			*chain = append([]Afterware{aw}, *chain...)
+		} else {
+			chain := []Afterware{aw}
+			m.afterWildcards.Set(path, &chain)
+		}
 	} else {
 		if m.afterware == nil {
 			m.afterware = make(map[string][]Afterware)
