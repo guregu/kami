@@ -21,11 +21,11 @@ type Middleware func(context.Context, http.ResponseWriter, *http.Request) contex
 // kami will try its best to convert standard, non-context middleware.
 // See the Use function for important information about how kami middleware is run.
 // The following concrete types are accepted:
-// 	- Middleware
-// 	- func(context.Context, http.ResponseWriter, *http.Request) context.Context
-// 	- func(http.ResponseWriter, *http.Request) context.Context
-// 	- func(http.Handler) http.Handler               [* see Use docs]
-// 	- func(http.ContextHandler) http.ContextHandler [* see Use docs]
+//  - Middleware
+//  - func(context.Context, http.ResponseWriter, *http.Request) context.Context
+//  - func(http.ResponseWriter, *http.Request) context.Context
+//  - func(http.Handler) http.Handler               [* see Use docs]
+//  - func(http.ContextHandler) http.ContextHandler [* see Use docs]
 //  - http.Handler 									[read only]
 //  - func(http.ResponseWriter, *http.Request)      [read only]
 // The old x/net/context is also supported.
@@ -76,17 +76,19 @@ func (m *wares) run(ctx context.Context, w http.ResponseWriter, r *http.Request)
 	if m.wildcards != nil {
 		// wildcard middleware
 		if wild, params := m.wildcards.Get(r.URL.Path); wild != nil {
-			if mw, ok := wild.(Middleware); ok {
+			if mws, ok := wild.(*[]Middleware); ok {
 				ctx = mergeParams(ctx, params)
 				r = r.WithContext(ctx)
-				result := mw(ctx, w, r)
-				if result == nil {
-					return r, ctx, false
+				for _, mw := range *mws {
+					result := mw(ctx, w, r)
+					if result == nil {
+						return r, ctx, false
+					}
+					if result != ctx {
+						r = r.WithContext(result)
+					}
+					ctx = result
 				}
-				if result != ctx {
-					r = r.WithContext(result)
-				}
-				ctx = result
 			}
 		}
 	}
@@ -100,15 +102,17 @@ func (m *wares) after(ctx context.Context, w mutil.WriterProxy, r *http.Request)
 	if m.afterWildcards != nil {
 		// wildcard afterware
 		if wild, params := m.afterWildcards.Get(r.URL.Path); wild != nil {
-			if aw, ok := wild.(Afterware); ok {
+			if aws, ok := wild.(*[]Afterware); ok {
 				ctx = mergeParams(ctx, params)
 				r = r.WithContext(ctx)
-				result := aw(ctx, w, r)
-				if result != nil {
-					if result != ctx {
-						r = r.WithContext(result)
+				for _, aw := range *aws {
+					result := aw(ctx, w, r)
+					if result != nil {
+						if result != ctx {
+							r = r.WithContext(result)
+						}
+						ctx = result
 					}
-					ctx = result
 				}
 			}
 		}

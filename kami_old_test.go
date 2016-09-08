@@ -49,31 +49,42 @@ func TestKami(t *testing.T) {
 		ctx = expect(ctx, 5)
 		return ctx
 	})
+	kami.Use("/a/*files", func(ctx context.Context, w http.ResponseWriter, r *http.Request) context.Context {
+		ctx = expect(ctx, 6)
+		return ctx
+	})
 	kami.Get("/a/b", func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-		if prev := ctx.Value(5).(int); prev != 5 {
-			t.Error("handler: missing", 5)
+		if prev := ctx.Value(6).(int); prev != 6 {
+			t.Error("handler: missing", 6)
 		}
 		*(ctx.Value("handler").(*bool)) = true
 
 		w.WriteHeader(http.StatusTeapot)
 	})
 	kami.After("/a/*files", func(ctx context.Context, w http.ResponseWriter, r *http.Request) context.Context {
-		ctx = expect(ctx, 6)
+		ctx = expect(ctx, 8)
+		if !*(ctx.Value("handler").(*bool)) {
+			t.Error("ran before handler")
+		}
+		return ctx
+	})
+	kami.After("/a/*files", func(ctx context.Context, w http.ResponseWriter, r *http.Request) context.Context {
+		ctx = expect(ctx, 7)
 		if !*(ctx.Value("handler").(*bool)) {
 			t.Error("ran before handler")
 		}
 		return ctx
 	})
 	kami.After("/a/b", kami.Afterware(func(ctx context.Context, w mutil.WriterProxy, r *http.Request) context.Context {
-		ctx = expect(ctx, 7)
-		return ctx
-	}))
-	kami.After("/a/", func(ctx context.Context) context.Context {
 		ctx = expect(ctx, 9)
 		return ctx
+	}))
+	kami.After("/a/", func(ctx context.Context, w mutil.WriterProxy, r *http.Request) context.Context {
+		ctx = expect(ctx, 11)
+		return ctx
 	})
-	kami.After("/a/", func(ctx context.Context) context.Context {
-		ctx = expect(ctx, 8)
+	kami.After("/a/", func(ctx context.Context, w mutil.WriterProxy, r *http.Request) context.Context {
+		ctx = expect(ctx, 10)
 		return ctx
 	})
 	kami.After("/", func(ctx context.Context, w mutil.WriterProxy, r *http.Request) context.Context {
@@ -81,7 +92,7 @@ func TestKami(t *testing.T) {
 			t.Error("wrong status", status)
 		}
 
-		ctx = expect(ctx, 10)
+		ctx = expect(ctx, 12)
 		*(ctx.Value("done").(*bool)) = true
 		panic("🍣")
 		return nil
