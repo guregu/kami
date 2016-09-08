@@ -22,8 +22,8 @@ func Param(ctx context.Context, name string) string {
 	return params[name]
 }
 
-// SetParameter will set the value of a path parameter in a given context.
-func SetParameter(ctx context.Context, name string, value string) context.Context {
+// SetParam will set the value of a path parameter in a given context.
+func SetParam(ctx context.Context, name string, value string) context.Context {
 	params, ok := ctx.Value(paramsKey).(map[string]string)
 	if !ok {
 		params = make(map[string]string)
