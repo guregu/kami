@@ -11,7 +11,7 @@ const (
 	panicKey
 )
 
-// Param returns a request URL parameter, or a blank string if it doesn't exist.
+// Param returns a request path parameter, or a blank string if it doesn't exist.
 // For example, with the path /v2/papers/:page
 // use kami.Param(ctx, "page") to access the :page variable.
 func Param(ctx context.Context, name string) string {
@@ -23,13 +23,15 @@ func Param(ctx context.Context, name string) string {
 }
 
 // SetParam will set the value of a path parameter in a given context.
+// This is intended for testing and should not be used otherwise.
 func SetParam(ctx context.Context, name string, value string) context.Context {
 	params, ok := ctx.Value(paramsKey).(map[string]string)
 	if !ok {
-		params = make(map[string]string)
+		params = map[string]string{name: value}
+		return context.WithValue(ctx, paramsKey, params)
 	}
 	params[name] = value
-	return context.WithValue(ctx, paramsKey, params)
+	return ctx
 }
 
 // Exception gets the "v" in panic(v). The panic details.
