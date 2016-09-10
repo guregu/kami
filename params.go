@@ -5,6 +5,7 @@ import (
 )
 
 type key int
+type param string
 
 const (
 	paramsKey key = iota
@@ -15,23 +16,14 @@ const (
 // For example, with the path /v2/papers/:page
 // use kami.Param(ctx, "page") to access the :page variable.
 func Param(ctx context.Context, name string) string {
-	params, ok := ctx.Value(paramsKey).(map[string]string)
-	if !ok {
-		return ""
-	}
-	return params[name]
+	value, _ := ctx.Value(param(name)).(string)
+	return value
 }
 
 // SetParam will set the value of a path parameter in a given context.
 // This is intended for testing and should not be used otherwise.
 func SetParam(ctx context.Context, name string, value string) context.Context {
-	params, ok := ctx.Value(paramsKey).(map[string]string)
-	if !ok {
-		params = map[string]string{name: value}
-		return context.WithValue(ctx, paramsKey, params)
-	}
-	params[name] = value
-	return ctx
+	return context.WithValue(ctx, param(name), value)
 }
 
 // Exception gets the "v" in panic(v). The panic details.
@@ -41,17 +33,17 @@ func Exception(ctx context.Context) interface{} {
 }
 
 func newContextWithParams(ctx context.Context, params map[string]string) context.Context {
-	return context.WithValue(ctx, paramsKey, params)
+	for k, v := range params {
+		ctx = SetParam(ctx, k, v)
+	}
+	return ctx
 }
 
 func mergeParams(ctx context.Context, params map[string]string) context.Context {
-	current, _ := ctx.Value(paramsKey).(map[string]string)
-	if current == nil {
-		return context.WithValue(ctx, paramsKey, params)
-	}
-
 	for k, v := range params {
-		current[k] = v
+		if Param(ctx, k) != v {
+			ctx = SetParam(ctx, k, v)
+		}
 	}
 	return ctx
 }
