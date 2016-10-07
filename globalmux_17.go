@@ -13,6 +13,8 @@ import (
 var (
 	// Context is the root "god object" from which every request's context will derive.
 	Context = context.Background()
+	// Cancel will, if true, automatically cancel the context of incoming requests after they finish.
+	Cancel bool
 
 	// PanicHandler will, if set, be called on panics.
 	// You can use kami.Exception(ctx) within the panic handler to get panic details.
@@ -65,6 +67,7 @@ func bless(h ContextHandler) httptreemux.HandlerFunc {
 	k := kami{
 		handler:      h,
 		base:         &Context,
+		autocancel:   &Cancel,
 		middleware:   defaultMW,
 		panicHandler: &PanicHandler,
 		logHandler:   &LogHandler,
@@ -76,6 +79,7 @@ func bless(h ContextHandler) httptreemux.HandlerFunc {
 // It removes every handler and all middleware.
 func Reset() {
 	Context = context.Background()
+	Cancel = false
 	PanicHandler = nil
 	LogHandler = nil
 	defaultMW = newWares()

@@ -15,6 +15,8 @@ type Mux struct {
 	// Context is the root "god object" for this mux,
 	// from which every request's context will derive.
 	Context context.Context
+	// Cancel will, if true, automatically cancel the context of incoming requests after they finish.
+	Cancel bool
 	// PanicHandler will, if set, be called on panics.
 	// You can use kami.Exception(ctx) within the panic handler to get panic details.
 	PanicHandler HandlerType
@@ -136,6 +138,7 @@ func (m *Mux) bless(h ContextHandler) httptreemux.HandlerFunc {
 	k := kami{
 		handler:      h,
 		base:         &m.Context,
+		autocancel:   &m.Cancel,
 		middleware:   m.wares,
 		panicHandler: &m.PanicHandler,
 		logHandler:   &m.LogHandler,

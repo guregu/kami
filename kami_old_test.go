@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/zenazn/goji/web/mutil"
 	"golang.org/x/net/context"
@@ -15,6 +16,9 @@ import (
 
 func TestKami(t *testing.T) {
 	kami.Reset()
+	kami.Cancel = true
+
+	done := make(chan struct{})
 
 	expect := func(ctx context.Context, i int) context.Context {
 		if prev := ctx.Value(i - 1).(int); prev != i-1 {
@@ -31,6 +35,10 @@ func TestKami(t *testing.T) {
 		ctx = context.WithValue(ctx, "handler", new(bool))
 		ctx = context.WithValue(ctx, "done", new(bool))
 		ctx = context.WithValue(ctx, "recovered", new(bool))
+		go func() {
+			<-ctx.Done()
+			close(done)
+		}()
 		return ctx
 	})
 	kami.Use("/a/", func(ctx context.Context, w http.ResponseWriter, r *http.Request) context.Context {
@@ -113,6 +121,12 @@ func TestKami(t *testing.T) {
 	}
 
 	expectResponseCode(t, "GET", "/a/b", http.StatusTeapot)
+	select {
+	case <-done:
+		// ok
+	case <-time.After(10 * time.Second):
+		panic("didn't cancel")
+	}
 }
 
 func TestLoggerAndPanic(t *testing.T) {
