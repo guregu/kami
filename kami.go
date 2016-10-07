@@ -14,6 +14,7 @@ import (
 // in order to run all the middleware and other special handlers.
 type kami struct {
 	handler      ContextHandler
+	autocancel   *bool
 	base         *context.Context
 	middleware   *wares
 	panicHandler *HandlerType
@@ -23,6 +24,7 @@ type kami struct {
 func (k kami) handle(w http.ResponseWriter, r *http.Request, params map[string]string) {
 	var (
 		ctx           = defaultContext(*k.base, r)
+		autocancel    = *k.autocancel
 		handler       = k.handler
 		mw            = *k.middleware
 		panicHandler  = *k.panicHandler
@@ -31,6 +33,12 @@ func (k kami) handle(w http.ResponseWriter, r *http.Request, params map[string]s
 	)
 	if len(params) > 0 {
 		ctx = newContextWithParams(ctx, params)
+	}
+
+	if autocancel {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithCancel(ctx)
+		defer cancel()
 	}
 
 	var proxy mutil.WriterProxy
