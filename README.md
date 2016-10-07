@@ -108,6 +108,7 @@ func FromContext(ctx context.Context) string {
 * Builds targeting Google App Engine will automatically wrap the "god object" Context with App Engine's per-request Context.
 * Add middleware with `kami.Use("/path", kami.Middleware)`. Middleware runs before requests and can stop them early. More on middleware below.
 * Add afterware with `kami.After("/path", kami.Afterware)`. Afterware runs after requests.
+* Set `kami.Cancel` to `true` to automatically cancel all request's contexts after the request is finished. Unlike the standard library, kami does not cancel contexts by default.
 * You can provide a panic handler by setting `kami.PanicHandler`. When the panic handler is called, you can access the panic error with `kami.Exception(ctx)`. 
 * You can also provide a `kami.LogHandler` that will wrap every request. `kami.LogHandler` has a different function signature, taking a WriterProxy that has access to the response status code, etc.
 * Use `kami.Serve()` to gracefully serve your application, or mount `kami.Handler()` somewhere convenient. 
