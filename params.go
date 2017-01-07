@@ -4,18 +4,14 @@ import (
 	"golang.org/x/net/context"
 )
 
-type key int
-
-const (
-	paramsKey key = iota
-	panicKey
-)
+type paramsKey struct{}
+type panicKey struct{}
 
 // Param returns a request path parameter, or a blank string if it doesn't exist.
 // For example, with the path /v2/papers/:page
 // use kami.Param(ctx, "page") to access the :page variable.
 func Param(ctx context.Context, name string) string {
-	params, ok := ctx.Value(paramsKey).(map[string]string)
+	params, ok := ctx.Value(paramsKey{}).(map[string]string)
 	if !ok {
 		return ""
 	}
@@ -25,10 +21,10 @@ func Param(ctx context.Context, name string) string {
 // SetParam will set the value of a path parameter in a given context.
 // This is intended for testing and should not be used otherwise.
 func SetParam(ctx context.Context, name string, value string) context.Context {
-	params, ok := ctx.Value(paramsKey).(map[string]string)
+	params, ok := ctx.Value(paramsKey{}).(map[string]string)
 	if !ok {
 		params = map[string]string{name: value}
-		return context.WithValue(ctx, paramsKey, params)
+		return context.WithValue(ctx, paramsKey{}, params)
 	}
 	params[name] = value
 	return ctx
@@ -37,17 +33,17 @@ func SetParam(ctx context.Context, name string, value string) context.Context {
 // Exception gets the "v" in panic(v). The panic details.
 // Only PanicHandler will receive a context you can use this with.
 func Exception(ctx context.Context) interface{} {
-	return ctx.Value(panicKey)
+	return ctx.Value(panicKey{})
 }
 
 func newContextWithParams(ctx context.Context, params map[string]string) context.Context {
-	return context.WithValue(ctx, paramsKey, params)
+	return context.WithValue(ctx, paramsKey{}, params)
 }
 
 func mergeParams(ctx context.Context, params map[string]string) context.Context {
-	current, _ := ctx.Value(paramsKey).(map[string]string)
+	current, _ := ctx.Value(paramsKey{}).(map[string]string)
 	if current == nil {
-		return context.WithValue(ctx, paramsKey, params)
+		return context.WithValue(ctx, paramsKey{}, params)
 	}
 
 	for k, v := range params {
@@ -57,5 +53,5 @@ func mergeParams(ctx context.Context, params map[string]string) context.Context 
 }
 
 func newContextWithException(ctx context.Context, exception interface{}) context.Context {
-	return context.WithValue(ctx, panicKey, exception)
+	return context.WithValue(ctx, panicKey{}, exception)
 }
