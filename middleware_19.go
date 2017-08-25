@@ -1,4 +1,4 @@
-// +build go1.7,!go1.9
+// +build go1.9
 
 package kami
 
@@ -8,7 +8,6 @@ import (
 	"net/http"
 
 	"github.com/zenazn/goji/web/mutil"
-	netcontext "golang.org/x/net/context"
 )
 
 // convert turns standard http middleware into kami Middleware if needed.
@@ -18,22 +17,9 @@ func convert(mw MiddlewareType) Middleware {
 		return x
 	case func(context.Context, http.ResponseWriter, *http.Request) context.Context:
 		return Middleware(x)
-	case func(netcontext.Context, http.ResponseWriter, *http.Request) netcontext.Context:
-		return Middleware(func(ctx context.Context, w http.ResponseWriter, r *http.Request) context.Context {
-			return x(ctx, w, r)
-		})
 	case func(ContextHandler) ContextHandler:
 		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) context.Context {
 			var dh dummyHandler
-			x(&dh).ServeHTTPContext(ctx, w, r)
-			if !dh {
-				return nil
-			}
-			return ctx
-		}
-	case func(OldContextHandler) OldContextHandler:
-		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) context.Context {
-			var dh oldDummyHandler
 			x(&dh).ServeHTTPContext(ctx, w, r)
 			if !dh {
 				return nil
@@ -74,23 +60,11 @@ func convertAW(aw AfterwareType) Afterware {
 		return x
 	case func(context.Context, mutil.WriterProxy, *http.Request) context.Context:
 		return Afterware(x)
-	case func(netcontext.Context, mutil.WriterProxy, *http.Request) netcontext.Context:
-		return func(ctx context.Context, w mutil.WriterProxy, r *http.Request) context.Context {
-			return x(ctx, w, r)
-		}
 	case func(context.Context, *http.Request) context.Context:
 		return func(ctx context.Context, _ mutil.WriterProxy, r *http.Request) context.Context {
 			return x(ctx, r)
 		}
-	case func(netcontext.Context, *http.Request) netcontext.Context:
-		return func(ctx context.Context, _ mutil.WriterProxy, r *http.Request) context.Context {
-			return x(ctx, r)
-		}
 	case func(context.Context) context.Context:
-		return func(ctx context.Context, _ mutil.WriterProxy, _ *http.Request) context.Context {
-			return x(ctx)
-		}
-	case func(netcontext.Context) netcontext.Context:
 		return func(ctx context.Context, _ mutil.WriterProxy, _ *http.Request) context.Context {
 			return x(ctx)
 		}
@@ -99,10 +73,6 @@ func convertAW(aw AfterwareType) Afterware {
 			return x(ctx, w, r)
 		}
 	case func(context.Context, http.ResponseWriter, *http.Request) context.Context:
-		return func(ctx context.Context, w mutil.WriterProxy, r *http.Request) context.Context {
-			return x(ctx, w, r)
-		}
-	case func(netcontext.Context, http.ResponseWriter, *http.Request) netcontext.Context:
 		return func(ctx context.Context, w mutil.WriterProxy, r *http.Request) context.Context {
 			return x(ctx, w, r)
 		}
@@ -131,15 +101,4 @@ func convertAW(aw AfterwareType) Afterware {
 		})
 	}
 	panic(fmt.Errorf("unsupported AfterwareType: %T", aw))
-}
-
-// oldDummyHandler is dummyHandler compatible with the old context type.
-type oldDummyHandler bool
-
-func (dh *oldDummyHandler) ServeHTTP(http.ResponseWriter, *http.Request) {
-	*dh = true
-}
-
-func (dh *oldDummyHandler) ServeHTTPContext(_ netcontext.Context, _ http.ResponseWriter, _ *http.Request) {
-	*dh = true
 }
