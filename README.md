@@ -157,7 +157,8 @@ func LoginRequired(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 Named parameters and wildcards in middleware are supported now. Middleware registered under a path with a wildcard will run **after** all hierarchical middleware. 
 
 ```go
-kami.Use("/user/:id/edit", CheckAdminPermissions)
+kami.Use("/user/:id/edit", CheckAdminPermissions)  // Matches only /user/:id/edit
+kami.Use("/user/:id/edit/*", CheckAdminPermissions)  // Matches all inheriting paths, behaves like non-parameterized paths
 ```
 
 #### Vanilla net/http middleware
